@@ -201,7 +201,7 @@ public class RaptorSearch {
 
                     int travelTime;
                     if (options.isArriveBy()) {
-                        if (!route.alights[0][boardState.patternIndex].getPattern().canBoard(stopNo))
+                        if (!boardState.tripTimes.canBoard(stopNo))
                             continue;
                         int boardTime = route.getBoardTime(boardState.tripTimes, stopNo);
                         newState.arrivalTime = (int) sd.time(boardTime);
@@ -209,8 +209,7 @@ public class RaptorSearch {
                         newState.arrivalTime -= options.getBoardSlack();
                         travelTime = newState.getParent().arrivalTime - newState.arrivalTime;
                     } else {
-                        if (!route.boards[0][boardState.patternIndex].getPattern()
-                                .canAlight(stopNo))
+                        if (!boardState.tripTimes.canAlight(stopNo))
                             continue;
                         int alightTime = route.getAlightTime(boardState.tripTimes, stopNo);
                         newState.arrivalTime = (int) sd.time(alightTime);

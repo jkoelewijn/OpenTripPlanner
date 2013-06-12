@@ -50,10 +50,14 @@ public class PreBoardEdge extends FreeEdge {
             }
         }
         
+        TransitStop fromVertex = (TransitStop) getFromVertex();
+        if(options.isWheelchairAccessible() && fromVertex.getStop().getWheelchairBoarding() != 1) {
+             return null;
+        }
+
         if (options.isArriveBy()) {
             /* Traverse backward: not much to do */
             StateEditor s1 = s0.edit(this);
-            TransitStop fromVertex = (TransitStop) getFromVertex();
             if (fromVertex.isLocal()) {
                 s1.setAlightedLocal(true);
             }
@@ -72,7 +76,6 @@ public class PreBoardEdge extends FreeEdge {
             if (!options.getModes().isTransit())
                 return null;
 
-            TransitStop fromVertex = (TransitStop) getFromVertex();
             // Do not board once one has alighted from a local stop
             if (fromVertex.isLocal() && s0.isEverBoarded()) {
                 return null;

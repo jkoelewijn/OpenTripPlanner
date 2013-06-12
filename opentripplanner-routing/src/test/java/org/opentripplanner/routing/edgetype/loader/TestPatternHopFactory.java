@@ -71,7 +71,8 @@ public class TestPatternHopFactory extends TestCase {
     private Graph graph;
     private GenericAStar aStar = new GenericAStar();
     private GtfsContext context;
-
+    private Map<AgencyAndId, TableTripPattern> patternIndex;
+    
     public void setUp() throws Exception {
 
         context = GtfsLibrary.readGtfs(new File(ConstantsForTests.FAKE_GTFS));
@@ -94,6 +95,18 @@ public class TestPatternHopFactory extends TestCase {
 
         NetworkLinker nl = new NetworkLinker(graph);
         nl.createLinkage();
+        
+        patternIndex = new HashMap<AgencyAndId, TableTripPattern>();
+        for (TransitStopDepart tsd : filter(graph.getVertices(), TransitStopDepart.class)) {
+            for (TransitBoardAlight tba : filter(tsd.getOutgoing(), TransitBoardAlight.class)) {
+                if (!tba.isBoarding())
+                    continue;
+                TableTripPattern pattern = tba.getPattern();
+                for (Trip trip : pattern.getTrips()) {
+                    patternIndex.put(trip.getId(), pattern);
+                }
+            }
+        }
     }
 
     public void testAnnotation() {
@@ -298,6 +311,22 @@ public class TestPatternHopFactory extends TestCase {
             ++i;
         }
         assertTrue(i == 3);
+        
+        TableTripPattern pattern = patternIndex.get(new AgencyAndId("agency", "10.1"));
+        assertEquals(pattern.getAlightType(0, 0), 0);
+        assertEquals(pattern.getBoardType(0, 0), 0);
+        assertEquals(pattern.getAlightType(1, 0), 0);
+        assertEquals(pattern.getBoardType(1, 0), 0);
+        pattern = patternIndex.get(new AgencyAndId("agency", "10.2"));
+        assertEquals(pattern.getAlightType(0, 0), 0);
+        assertEquals(pattern.getBoardType(0, 0), 1);
+        assertEquals(pattern.getAlightType(1, 0), 0);
+        assertEquals(pattern.getBoardType(1, 0), 0);
+        pattern = patternIndex.get(new AgencyAndId("agency", "10.3"));
+        assertEquals(pattern.getAlightType(0, 0), 0);
+        assertEquals(pattern.getBoardType(0, 0), 0);
+        assertEquals(pattern.getAlightType(1, 0), 1);
+        assertEquals(pattern.getBoardType(1, 0), 0);
 
         long startTime = TestUtils.dateInSeconds("America/New_York", 2009, 8, 19, 12, 0, 0);
         RoutingRequest options = new RoutingRequest();
@@ -493,6 +522,11 @@ public class TestPatternHopFactory extends TestCase {
         for (StreetTransitLink e : filter(stop_d.getOutgoing(), StreetTransitLink.class)) {
             split_d = e.getToVertex();
         }
+        
+        TableTripPattern pattern = patternIndex.get(new AgencyAndId("agency", "1.3"));
+        assertEquals(pattern.isWheelchairAccessible(0), true);
+        pattern = patternIndex.get(new AgencyAndId("agency", "2.1"));
+        assertEquals(pattern.isWheelchairAccessible(0), false);
         
         RoutingRequest options = new RoutingRequest();
         options.wheelchairAccessible = true;

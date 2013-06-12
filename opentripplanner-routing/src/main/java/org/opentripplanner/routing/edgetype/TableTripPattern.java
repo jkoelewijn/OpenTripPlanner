@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
-import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlTransient;
 
 import lombok.Delegate;
@@ -48,13 +47,8 @@ public class TableTripPattern implements TripPattern, Serializable {
     private static final Logger LOG = LoggerFactory.getLogger(TableTripPattern.class);
 
     private static final long serialVersionUID = MavenVersion.VERSION.getUID();
-    
+
     public static final int FLAG_WHEELCHAIR_ACCESSIBLE = 1;
-    public static final int MASK_PICKUP = 2|4;
-    public static final int SHIFT_PICKUP = 1;
-    public static final int MASK_DROPOFF = 8|16;
-    public static final int SHIFT_DROPOFF = 3;
-    public static final int NO_PICKUP = 1;
     public static final int FLAG_BIKES_ALLOWED = 32;
 
     /** 
@@ -98,38 +92,17 @@ public class TableTripPattern implements TripPattern, Serializable {
      */
     private PatternHop[] patternHops;
 
-    /** Holds stop-specific information such as wheelchair accessibility and pickup/dropoff roles. */
-    @XmlElement int[] perStopFlags;
-    
     /** Optimized serviceId code. All trips in a pattern are by definition on the same service. */
     int serviceId; 
     
     public TableTripPattern(Trip exemplar, ScheduledStopPattern stopPattern, int serviceId) {
         this.exemplar = exemplar;
         this.serviceId = serviceId;
-        setStopsFromStopPattern(stopPattern);
+        setStops(stopPattern);
     }
 
-    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-        in.defaultReadObject();
-        // The serialized graph contains cyclic references TableTripPattern <--> Timetable.
-        // The Timetable must be indexed from here (rather than in its own readObject method) 
-        // to ensure that the stops field it uses in TableTripPattern is already deserialized.
-        this.scheduledTimetable.finish();
-    }
-            
-    private void setStopsFromStopPattern(ScheduledStopPattern stopPattern) {
+    private void setStops(ScheduledStopPattern stopPattern) {
         patternHops = new PatternHop[stopPattern.stops.size() - 1];
-        perStopFlags = new int[stopPattern.stops.size()];
-        int i = 0;
-        for (Stop stop : stopPattern.stops) {
-            if (stop.getWheelchairBoarding() == 1) {
-                perStopFlags[i] |= FLAG_WHEELCHAIR_ACCESSIBLE;
-            }
-            perStopFlags[i] |= stopPattern.pickups.get(i) << SHIFT_PICKUP;
-            perStopFlags[i] |= stopPattern.dropoffs.get(i) << SHIFT_DROPOFF;
-            ++i;
-        }
     }
     
     public Stop getStop(int stopIndex) {
@@ -137,6 +110,14 @@ public class TableTripPattern implements TripPattern, Serializable {
     		return patternHops[stopIndex - 1].getEndStop();
     	else
     		return patternHops[stopIndex].getStartStop();
+    }
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        // The serialized graph contains cyclic references TableTripPattern <--> Timetable.
+        // The Timetable must be indexed from here (rather than in its own readObject method)
+        // to ensure that the stops field it uses in TableTripPattern is already deserialized.
+        this.scheduledTimetable.finish();
     }
 
     public List<Stop> getStops() {
@@ -152,6 +133,11 @@ public class TableTripPattern implements TripPattern, Serializable {
     
     public List<PatternHop> getPatternHops() {
     	return Arrays.asList(patternHops);
+    }
+
+    /** Returns the zone of a given stop */
+    public String getZone(int stopIndex) {
+        return getStop(stopIndex).getZoneId();
     }
 
     /* package private */
@@ -177,32 +163,9 @@ public class TableTripPattern implements TripPattern, Serializable {
         return trips.indexOf(trip);
     }
 
-    /** Returns whether passengers can alight at a given stop */
-    public boolean canAlight(int stopIndex) {
-        return getAlightType(stopIndex) != NO_PICKUP;
-    }
-
-    /** Returns whether passengers can board at a given stop */
-    public boolean canBoard(int stopIndex) {
-        return getBoardType(stopIndex) != NO_PICKUP;
-    }
-
-    /** Returns the zone of a given stop */
-    public String getZone(int stopIndex) {
-        return getStop(stopIndex).getZoneId();
-    }
-
     /** Returns an arbitrary trip that uses this pattern */
     public Trip getExemplar() {
         return exemplar;
-    }
-
-    public int getAlightType(int stopIndex) {
-        return (perStopFlags[stopIndex] & MASK_DROPOFF) >> SHIFT_DROPOFF;
-    }
-
-    public int getBoardType(int stopIndex) {
-        return (perStopFlags[stopIndex] & MASK_PICKUP) >> SHIFT_PICKUP;
     }
 
     /** 
@@ -235,16 +198,10 @@ public class TableTripPattern implements TripPattern, Serializable {
         TimetableResolver snapshot = options.rctx.timetableSnapshot;
         if (snapshot != null)
             timetable = snapshot.resolve(this);
-        // check that we can even board/alight the given stop on this pattern with these options
-        int mask = boarding ? MASK_PICKUP : MASK_DROPOFF;
-        int shift = boarding ? SHIFT_PICKUP : SHIFT_DROPOFF;
-        if ((perStopFlags[stopIndex] & mask) >> shift == NO_PICKUP) {
+
+        if(options.isWheelchairAccessible() && getStops().get(stopIndex).getWheelchairBoarding() != TripTimes.WHEELCHAIR_ACCESSIBLE)
             return null;
-        }
-        if (options.wheelchairAccessible && 
-           (perStopFlags[stopIndex] & FLAG_WHEELCHAIR_ACCESSIBLE) == 0) {
-            return null;
-        }
+
         // so far so good, delegate to the timetable
         return timetable.getNextTrip(stopIndex, time, state0, sd, haveBicycle, boarding);
     }

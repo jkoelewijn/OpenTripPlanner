@@ -21,11 +21,13 @@ package org.opentripplanner.routing.trippattern;
 public class UpdatedTripTimes extends DelegatingTripTimes {
 
     private final int offset;
-    
+
     private int[] arrivals;
-    
+
     private int[] departures;
-    
+
+    private int[] perStopFlags;
+
     // maybe push pattern and offset into block
     public UpdatedTripTimes(ScheduledTripTimes sched, UpdateBlock block, int offset) {
         super(sched);
@@ -33,8 +35,11 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
         int nUpdates = block.updates.size();
         this.arrivals = new int[nUpdates];
         this.departures = new int[nUpdates];
+        this.perStopFlags = new int[nUpdates];
         int ui = 0;
         for (Update update : block.updates) {
+            perStopFlags[ui] |= sched.getBoardType(ui) << SHIFT_PICKUP;
+            perStopFlags[ui] |= sched.getAlightType(ui) << SHIFT_DROPOFF;
             arrivals[ui] = update.arrive;
             departures[ui] = update.depart;
             ui += 1;
@@ -63,8 +68,38 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
             return departures[update];
         return arrivals[update];
     }
-    
+
+    @Override public int getAlightType(int stopIndex) {
+        if(perStopFlags == null)
+            return super.getAlightType(stopIndex);
+
+        int update = stopIndex - offset;
+        if (update < 0)
+            return NO_DROPOFF;
+        if(update >= perStopFlags.length)
+            return super.getAlightType(stopIndex);
+
+        return (perStopFlags[update] & MASK_DROPOFF) >> SHIFT_DROPOFF;
+    }
+
+    @Override public int getBoardType(int stopIndex) {
+        if(perStopFlags == null)
+            return super.getBoardType(stopIndex);
+
+        int update = stopIndex - offset;
+        if (update < 0)
+            return NO_PICKUP;
+        if(update >= perStopFlags.length)
+            return super.getBoardType(stopIndex);
+
+        return (perStopFlags[update] & MASK_PICKUP) >> SHIFT_PICKUP;
+    }
+
     @Override public boolean compact() {
+        return compactArrivalAndDepartureTimes() || compactPerStopFlags();
+    }
+
+    private boolean compactArrivalAndDepartureTimes() {
         if (arrivals == null)
             return false;
         for (int i = 0; i < arrivals.length; i++) {
@@ -75,7 +110,21 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
         arrivals = null;
         return true;
     }
-    
+
+    private boolean compactPerStopFlags() {
+        if(perStopFlags == null)
+            return false;
+
+        for(int stop = offset; stop < offset + perStopFlags.length; ++stop) {
+            if(getAlightType(stop) != super.getAlightType(stop) || getBoardType(stop) != super.getBoardType(stop)) {
+                return false;
+            }
+        }
+
+        perStopFlags = null;
+        return true;
+    }
+
     public String toString() {
         String s = String.format("UpdatedTripTimes block size %d at stop %d\n", 
                 departures.length, offset);
