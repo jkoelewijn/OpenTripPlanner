@@ -44,6 +44,18 @@ public abstract class TripTimes {
     private static final Logger LOG = LoggerFactory.getLogger(TripTimes.class);
     public static final int PASSED = -1;
     public static final int CANCELED = -2;
+
+    public static final int WHEELCHAIR_ACCESSIBLE = 1;
+
+    public static final int MASK_PICKUP = 2|4;
+    public static final int SHIFT_PICKUP = 1;
+    public static final int MASK_DROPOFF = 8|16;
+    public static final int SHIFT_DROPOFF = 3;
+
+    public static final int PICKUP = 0;
+    public static final int DROPOFF = 0;
+    public static final int NO_PICKUP = 1;
+    public static final int NO_DROPOFF = 1;
     
     /* ABSTRACT INSTANCE METHODS */
     
@@ -77,6 +89,31 @@ public abstract class TripTimes {
      * It all depends whether we store pointers to the enclosing Timetable in ScheduledTripTimes...
      */
     public abstract String getHeadsign(int hop);
+
+    /**
+     * @return the alighting restrictions on the given stop
+     */
+    public abstract int getAlightType(int stop);
+
+    /**
+     * @return the boarding restrictions on the given stop
+     */
+    public abstract int getBoardType(int stop);
+
+    /** Returns whether passengers can alight at a given stop */
+    public boolean canAlight(int stopIndex) {
+        return getAlightType(stopIndex) != TripTimes.NO_PICKUP;
+    }
+
+    /** Returns whether passengers can board at a given stop */
+    public boolean canBoard(int stopIndex) {
+        return getBoardType(stopIndex) != TripTimes.NO_PICKUP;
+    }
+
+    /**
+     * @return is this trip wheelchair accessible?
+     */
+    public abstract boolean isWheelchairAccessible();
         
     /* IMPLEMENTED INSTANCE METHODS */
     
@@ -256,8 +293,16 @@ public abstract class TripTimes {
                 return false;
             }
         }
-        if (options.wheelchairAccessible && trip.getWheelchairAccessible() != 1)
+
+        if(boarding && !canBoard(stopIndex))
             return false;
+
+        if(!boarding && !canAlight(stopIndex))
+            return false;
+
+        if (options.wheelchairAccessible && !isWheelchairAccessible())
+            return false;
+
         if (bicycle)
             if ((trip.getTripBikesAllowed() != 2) &&    // trip does not explicitly allow bikes and
                 (trip.getRoute().getBikesAllowed() != 2 // route does not explicitly allow bikes or  
@@ -299,6 +344,7 @@ public abstract class TripTimes {
             }
         }
         
+
         return true;
     }
 

@@ -53,6 +53,11 @@ public class PreAlightEdge extends FreeEdge {
             }
         }
         
+        TransitStop toVertex = (TransitStop) getToVertex();
+        if(options.isWheelchairAccessible() && toVertex.getStop().getWheelchairBoarding() != 1) {
+            return null;
+        }
+
         if (options.isArriveBy()) {
             /* Backward traversal: apply stop(pair)-specific costs */
             // Do not pre-board if transit modes are not selected.
@@ -65,7 +70,6 @@ public class PreAlightEdge extends FreeEdge {
             if (s0.isAlightedLocal()) {
                 return null;
             }
-            TransitStop toVertex = (TransitStop) getToVertex();
             // Do not board once one has alighted from a local stop
             if (toVertex.isLocal() && s0.isEverBoarded()) {
                 return null;
@@ -105,7 +109,6 @@ public class PreAlightEdge extends FreeEdge {
         } else {
             /* Forward traversal: not so much to do */
             StateEditor s1 = s0.edit(this);
-            TransitStop toVertex = (TransitStop) getToVertex();
             if (toVertex.isLocal()) {
                 s1.setAlightedLocal(true);
             }

@@ -60,6 +60,8 @@ public class ScheduledTripTimes extends TripTimes implements Serializable {
      */ //@XmlElement
     private int[] arrivalTimes; 
 
+    private int[] perStopFlags;
+
     /** The provided stopTimes are assumed to be pre-filtered, valid, and monotonically increasing. */ 
     public ScheduledTripTimes(Trip trip, List<StopTime> stopTimes) {
         this.trip = trip;
@@ -67,10 +69,15 @@ public class ScheduledTripTimes extends TripTimes implements Serializable {
         int nHops = nStops - 1;
         departureTimes = new int[nHops];
         arrivalTimes = new int[nHops];
+        perStopFlags = new int[nStops];
         // this might be clearer if time array indexes were stops instead of hops
         for (int hop = 0; hop < nHops; hop++) {
             departureTimes[hop] = stopTimes.get(hop).getDepartureTime();
             arrivalTimes[hop] = stopTimes.get(hop + 1).getArrivalTime();
+        }
+        for (int stop = 0; stop < nStops; stop++) {
+            perStopFlags[stop] |= stopTimes.get(stop).getPickupType () << SHIFT_PICKUP;
+            perStopFlags[stop] |= stopTimes.get(stop).getDropOffType() << SHIFT_DROPOFF;
         }
         this.headsigns = makeHeadsignsArray(stopTimes);
         // If all dwell times are 0, arrival times array is not needed. Attempt to save some memory.
@@ -139,10 +146,33 @@ public class ScheduledTripTimes extends TripTimes implements Serializable {
             return departureTimes[hop + 1];
         return arrivalTimes[hop];
     }
-    
+
+    @Override
+    public int getAlightType(int stopIndex) {
+        if(perStopFlags == null)
+            return DROPOFF;
+        return (perStopFlags[stopIndex] & MASK_DROPOFF) >> SHIFT_DROPOFF;
+    }
+
+    @Override
+    public int getBoardType(int stopIndex) {
+        if(perStopFlags == null)
+            return PICKUP;
+        return (perStopFlags[stopIndex] & MASK_PICKUP) >> SHIFT_PICKUP;
+    }
+
+    @Override
+    public boolean isWheelchairAccessible() {
+        return getTrip().getWheelchairAccessible() == WHEELCHAIR_ACCESSIBLE;
+    }
+
     /** {@inheritDoc} Replaces the arrivals array with null if all dwell times are zero. */
     @Override
     public boolean compact() {
+        return compactArrivalsAndDepartures() || compactPerStopFlags();
+    }
+
+    private boolean compactArrivalsAndDepartures() {
         if (arrivalTimes == null)
             return false;
         // use arrivalTimes to determine number of hops because departureTimes may have grown by 1
@@ -162,6 +192,20 @@ public class ScheduledTripTimes extends TripTimes implements Serializable {
         return true;
     }
     
+    private boolean compactPerStopFlags() {
+        if(perStopFlags == null)
+            return false;
+
+        for(int stop = 0; stop < perStopFlags.length; ++stop) {
+            if(perStopFlags[stop] != 0) {
+                return false;
+            }
+        }
+
+        perStopFlags = null;
+        return true;
+    }
+
     @SuppressWarnings("unused")
     private boolean decompact() {
         if (arrivalTimes != null)

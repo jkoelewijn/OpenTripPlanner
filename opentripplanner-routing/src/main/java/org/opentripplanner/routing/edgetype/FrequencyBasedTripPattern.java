@@ -23,6 +23,7 @@ import org.onebusaway.gtfs.model.Frequency;
 import org.onebusaway.gtfs.model.Stop;
 import org.onebusaway.gtfs.model.Trip;
 import org.opentripplanner.common.model.T2;
+import org.opentripplanner.routing.trippattern.TripTimes;
 
 public class FrequencyBasedTripPattern implements Serializable, TripPattern {
 
@@ -90,9 +91,9 @@ public class FrequencyBasedTripPattern implements Serializable, TripPattern {
 
     public int getNextDepartureTime(int stopIndex, int afterTime, boolean wheelchairAccessible,
             boolean bikesAllowed, boolean pickup) {
-        int mask = pickup ? TableTripPattern.MASK_PICKUP : TableTripPattern.MASK_DROPOFF;
-        int shift = pickup ? TableTripPattern.SHIFT_PICKUP : TableTripPattern.SHIFT_DROPOFF;
-        if ((perStopFlags[stopIndex] & mask) >> shift == TableTripPattern.NO_PICKUP) {
+        int mask = pickup ? TripTimes.MASK_PICKUP : TripTimes.MASK_DROPOFF;
+        int shift = pickup ? TripTimes.SHIFT_PICKUP : TripTimes.SHIFT_DROPOFF;
+        if ((perStopFlags[stopIndex] & mask) >> shift == TripTimes.NO_PICKUP) {
             return -1;
         }
         if (wheelchairAccessible
@@ -150,9 +151,9 @@ public class FrequencyBasedTripPattern implements Serializable, TripPattern {
 
     public int getPreviousArrivalTime(int stopIndex, int beforeTime,
             boolean wheelchairAccessible, boolean bikesAllowed, boolean pickup) {
-        int mask = pickup ? TableTripPattern.MASK_PICKUP : TableTripPattern.MASK_DROPOFF;
-        int shift = pickup ? TableTripPattern.SHIFT_PICKUP : TableTripPattern.SHIFT_DROPOFF;
-        if ((perStopFlags[stopIndex + 1] & mask) >> shift == TableTripPattern.NO_PICKUP) {
+        int mask = pickup ? TripTimes.MASK_PICKUP : TripTimes.MASK_DROPOFF;
+        int shift = pickup ? TripTimes.SHIFT_PICKUP : TripTimes.SHIFT_DROPOFF;
+        if ((perStopFlags[stopIndex + 1] & mask) >> shift == TripTimes.NO_PICKUP) {
             return -1;
         }
         if (wheelchairAccessible
@@ -230,11 +231,11 @@ public class FrequencyBasedTripPattern implements Serializable, TripPattern {
     }
 
     public boolean canAlight(int stopIndex) {
-        return getAlightType(stopIndex) != TableTripPattern.NO_PICKUP;
+        return getAlightType(stopIndex) != TripTimes.NO_PICKUP;
     }
 
     public boolean canBoard(int stopIndex) {
-        return getBoardType(stopIndex) != TableTripPattern.NO_PICKUP;
+        return getBoardType(stopIndex) != TripTimes.NO_PICKUP;
     }
 
     public String getZone(int stopIndex) {
@@ -250,11 +251,11 @@ public class FrequencyBasedTripPattern implements Serializable, TripPattern {
     }
 
     public int getAlightType(int stopIndex) {
-        return (perStopFlags[stopIndex] & TableTripPattern.MASK_DROPOFF) >> TableTripPattern.SHIFT_DROPOFF;
+        return (perStopFlags[stopIndex] & TripTimes.MASK_DROPOFF) >> TripTimes.SHIFT_DROPOFF;
     }
 
     public int getBoardType(int stopIndex) {
-        return (perStopFlags[stopIndex] & TableTripPattern.MASK_PICKUP) >> TableTripPattern.SHIFT_PICKUP;
+        return (perStopFlags[stopIndex] & TripTimes.MASK_PICKUP) >> TripTimes.SHIFT_PICKUP;
     }
 
     public void createRanges(List<Frequency> frequencies) {

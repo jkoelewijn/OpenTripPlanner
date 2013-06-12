@@ -78,6 +78,9 @@ public class Timetable implements Serializable {
     /** For each stop, the best dwell time. This serves to provide lower bounds on traversal time. */
     private transient int bestDwellTimes[];
 
+    /** Holds stop-specific information such as wheelchair accessibility and pickup/dropoff roles. */
+    private int[] perStopFlags;
+
     /** Construct an empty Timetable. */
     public Timetable(TableTripPattern pattern) {
         tripTimes = new ArrayList<TripTimes>();
@@ -90,6 +93,8 @@ public class Timetable implements Serializable {
      */
     private Timetable (Timetable tt) {
         tripTimes = new ArrayList<TripTimes>(tt.tripTimes);
+        if(tt.perStopFlags != null)
+            perStopFlags = tt.perStopFlags.clone();
         this.pattern = tt.pattern;
     }
     
@@ -100,6 +105,29 @@ public class Timetable implements Serializable {
      */
     public Timetable copy() {
         return new Timetable(this);
+    }
+
+    /** Returns whether passengers can alight at a given stop */
+    public boolean canAlight(int stopIndex, int tripIndex) {
+        return tripTimes.get(tripIndex).canAlight(stopIndex);
+    }
+
+    /** Returns whether passengers can board at a given stop */
+    public boolean canBoard(int stopIndex, int tripIndex) {
+        return tripTimes.get(tripIndex).canBoard(stopIndex);
+    }
+
+    public int getAlightType(int stopIndex, int tripIndex) {
+        return tripTimes.get(tripIndex).getAlightType(stopIndex);
+    }
+
+    public int getBoardType(int stopIndex, int tripIndex) {
+        return tripTimes.get(tripIndex).getBoardType(stopIndex);
+    }
+    
+    /** Returns if the trip is wheelchair accessible. */
+    public boolean isWheelchairAccessible(int trip) {
+        return tripTimes.get(trip).isWheelchairAccessible();
     }
     
     /**
