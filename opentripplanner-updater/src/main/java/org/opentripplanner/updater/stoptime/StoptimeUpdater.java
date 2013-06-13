@@ -31,8 +31,7 @@ import org.opentripplanner.routing.edgetype.TimetableSnapshotSource;
 import org.opentripplanner.routing.edgetype.TransitBoardAlight;
 import org.opentripplanner.routing.graph.Graph;
 import org.opentripplanner.routing.services.GraphService;
-import org.opentripplanner.routing.trippattern.Update;
-import org.opentripplanner.routing.trippattern.UpdateBlock;
+import org.opentripplanner.routing.trippattern.TripUpdate;
 import org.opentripplanner.routing.vertextype.TransitStopDepart;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,6 +67,7 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
     
     /** A map from Trip AgencyAndIds to the TripPatterns that contain them */
     private Map<AgencyAndId, TableTripPattern> patternIndex;
+    
     // nothing in the timetable snapshot binds it to one graph. we could use this updater for all
     // graphs at once
     private Graph graph;
@@ -118,34 +118,35 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
     public void run() {
         int appliedBlockCount = 0;
         while (true) {
-            List<Update> updates = updateStreamer.getUpdates(); 
-            if (updates == null) {
+            List<TripUpdate> tripUpdates = updateStreamer.getUpdates(); 
+            if (tripUpdates == null) {
                 LOG.debug("updates is null");
                 continue;
-            } 
-            List<UpdateBlock> blocks = UpdateBlock.splitByTrip(updates);
-            LOG.debug("message contains {} trip update blocks", blocks.size());
+            }
+
+            LOG.debug("message contains {} trip update blocks", tripUpdates.size());
             int uIndex = 0;
-            for (UpdateBlock block : blocks) {
+            for (TripUpdate tripUpdate : tripUpdates) {
                 uIndex += 1;
-                LOG.debug("update block #{} ({} updates) :", uIndex, block.updates.size());
-                LOG.trace("{}", block.toString());
-                block.filter(true, true, true);
-                if (! block.isCoherent()) {
+                LOG.debug("update block #{} ({} updates) :", uIndex, tripUpdate.getUpdates().size());
+                LOG.trace("{}", tripUpdate.toString());
+                tripUpdate.filter(true, true, true);
+                if (! tripUpdate.isCoherent()) {
                     LOG.warn("Incoherent UpdateBlock, skipping.");
-                    continue; 
-                }
-                if (block.updates.size() < 1) {
-                    LOG.debug("UpdateBlock contains no updates after filtering, skipping.");
-                    continue; 
-                }
-                TableTripPattern pattern = patternIndex.get(block.tripId);
-                if (pattern == null) {
-                    LOG.debug("No pattern found for tripId {}, skipping UpdateBlock.", block.tripId);
                     continue;
                 }
+                if (tripUpdate.getUpdates().size() < 1) {
+                    LOG.debug("UpdateBlock contains no updates after filtering, skipping.");
+                    continue;
+                }
+                TableTripPattern pattern = patternIndex.get(tripUpdate.getTripId());
+                if (pattern == null) {
+                    LOG.debug("No pattern found for tripId {}, skipping UpdateBlock.", tripUpdate.getTripId());
+                    continue;
+                }
+
                 // we have a message we actually want to apply
-                boolean applied = buffer.update(pattern, block);
+                boolean applied = buffer.update(pattern, tripUpdate);
                 if (applied) {
                     appliedBlockCount += 1;
                     if (appliedBlockCount % logFrequency == 0) {
