@@ -42,7 +42,9 @@ import org.opentripplanner.routing.edgetype.TableTripPattern;
 import org.opentripplanner.routing.edgetype.TimetableResolver;
 import org.opentripplanner.routing.edgetype.TimetableSnapshotSource;
 import org.opentripplanner.routing.edgetype.factory.GTFSPatternHopFactory;
+import org.opentripplanner.routing.graph.Edge;
 import org.opentripplanner.routing.graph.Graph;
+import org.opentripplanner.routing.graph.Vertex;
 import org.opentripplanner.routing.services.GraphService;
 import org.opentripplanner.routing.services.TransitIndexService;
 import org.opentripplanner.routing.trippattern.TripUpdate;
@@ -85,14 +87,20 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
     
     /** The working copy of the timetable resolver. Should not be visible to routing threads. */
     private TimetableResolver buffer = new TimetableResolver();
+
+    /** Should expired realtime data be purged from the graph. */
+    @Setter private boolean purgeExpiredData = true;
     
     /** The TransitIndexService */
     private TransitIndexService transitIndexService;
     
     /** A map from ADDED Trip AgencyAndIds to the TripPatterns that contain them */
-    private Map<AgencyAndId, TableTripPattern> addedPatternIndex = new HashMap<AgencyAndId, TableTripPattern>();
-
+    // TODO: index on tripId + serviceId to be accurate...
+    private Map<AgencyAndId, GTFSPatternHopFactory.Result> addedPatternIndex = new HashMap<AgencyAndId, GTFSPatternHopFactory.Result>();
+    
     private Map<TableTripPattern, Set<AgencyAndId>> addedPatternUsageIndex = new HashMap<TableTripPattern, Set<AgencyAndId>>();
+    
+    private Map<ServiceDate, Set<TableTripPattern>> addedTripPatternsByServiceDate = new HashMap<ServiceDate, Set<TableTripPattern>>();
     
     // nothing in the timetable snapshot binds it to one graph. we could use this updater for all
     // graphs at once
@@ -178,6 +186,10 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
                 // TODO: logging...
             }
             LOG.debug("end of update message");
+            
+            if(purgeExpiredData) {
+                removeExpiredData();
+            }
         }
     }
 
@@ -216,9 +228,10 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
         }
 
         hopFactory.bootstrapContextFromTransitIndex(transitIndexService, calendarService, serviceIdToNumberService);
-        TableTripPattern tripPattern = hopFactory.addPatternForTripToGraph(graph, trip, stopTimes);
+        GTFSPatternHopFactory.Result result = hopFactory.addPatternForTripToGraph(graph, trip, stopTimes);
+        TableTripPattern tripPattern = result.pattern;
         hopFactory.augmentServiceIdToNumberService(serviceIdToNumberService);
-        addedPatternIndex.put(tripId, tripPattern);
+        addedPatternIndex.put(tripId, result);
         
         Set<AgencyAndId> patternUsage = addedPatternUsageIndex.get(tripPattern);
         if(patternUsage == null) {
@@ -227,6 +240,13 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
         patternUsage.add(tripId);
         addedPatternUsageIndex.put(tripPattern, patternUsage);
 
+        Set<TableTripPattern> patternsForServiceDate = addedTripPatternsByServiceDate.get(serviceDate);
+        if(patternsForServiceDate == null) {
+            patternsForServiceDate = new HashSet<TableTripPattern>();
+        }
+        patternsForServiceDate.add(tripPattern);
+        addedTripPatternsByServiceDate.put(serviceDate, patternsForServiceDate);
+        
         tripPattern.setTraversable(true);
 
         return true;
@@ -234,7 +254,7 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
 
     protected boolean handleCanceledTrip(TripUpdate tripUpdate) {
 
-        TableTripPattern pattern = getPatternForTrip(tripUpdate.getTripId());
+        TableTripPattern pattern = getPatternForTrip(tripUpdate);
         if (pattern == null) {
             LOG.debug("No pattern found for tripId {}, skipping UpdateBlock.", tripUpdate.getTripId());
             return false;
@@ -260,7 +280,7 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
             LOG.debug("UpdateBlock contains no updates after filtering, skipping.");
             return false;
         }
-        TableTripPattern pattern = getPatternForTrip(tripUpdate.getTripId());
+        TableTripPattern pattern = getPatternForTrip(tripUpdate);
         if (pattern == null) {
             LOG.debug("No pattern found for tripId {}, skipping UpdateBlock.", tripUpdate.getTripId());
             return false;
@@ -277,36 +297,57 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
     }
 
     protected boolean handleRemovedTrip(TripUpdate tripUpdate) {
+        Graph graph = graphService.getGraph();
+
         AgencyAndId tripId = tripUpdate.getTripId();
-        TableTripPattern pattern = addedPatternIndex.get(tripId);
+        GTFSPatternHopFactory.Result result = addedPatternIndex.get(tripId); 
+        TableTripPattern pattern = result.pattern;
         if(pattern == null) {
             LOG.warn("Attempt to remove non-added/non-existent pattern for " + tripUpdate);
             return false;
         }
+        addedPatternIndex.remove(tripId);
         
         Set<AgencyAndId> patternUsage = addedPatternUsageIndex.get(pattern);
         if(patternUsage == null) {
             return true;
         }
         
-        patternUsage.remove(tripId);
         addedPatternUsageIndex.put(pattern, patternUsage);
+        patternUsage.remove(tripId);
         
+        // NOTE: the trip is left in the TripPattern's timetable
         if(!patternUsage.isEmpty()) {
             return false;
         }
+
+        addedPatternUsageIndex.remove(pattern);
         
         pattern.setTraversable(false);
         
-        //TODO: remove edges from graph
+        for(Edge e : result.edges) {
+            e.detach();
+        }
+
+        for(Vertex v : result.vertices) {
+            graph.remove(v);
+        }
+        
+        ServiceDate serviceDate = tripUpdate.getServiceDate();
+        Set<TableTripPattern> patternsForServiceDate = addedTripPatternsByServiceDate.get(serviceDate);
+        if(patternsForServiceDate != null) {
+            patternsForServiceDate.remove(pattern);
+            addedTripPatternsByServiceDate.put(serviceDate, patternsForServiceDate);
+        }
         
         return false;
     }
     
-    protected TableTripPattern getPatternForTrip(AgencyAndId tripId) {
+    protected TableTripPattern getPatternForTrip(TripUpdate tripUpdate) {
+        AgencyAndId tripId = tripUpdate.getTripId();
         TableTripPattern pattern = transitIndexService.getTripPatternForTrip(tripId);
-        if(pattern == null) {
-            pattern = addedPatternIndex.get(tripId);
+        if(pattern == null && addedPatternIndex.containsKey(tripId)) {
+            pattern = addedPatternIndex.get(tripId).pattern;
         }
         return pattern;
     }
@@ -328,5 +369,20 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
         String s = (updateStreamer == null) ? "NONE" : updateStreamer.toString();
         return "Streaming stoptime updater with update streamer = " + s;
     }
-    
+
+    private void removeExpiredData() {
+        ServiceDate today = new ServiceDate();
+        ServiceDate previously = today.previous().previous(); // Just to be safe... 
+        
+        if(addedTripPatternsByServiceDate.containsKey(previously)) {
+            for(TableTripPattern tripPattern : addedTripPatternsByServiceDate.get(previously)) {
+                for(Trip trip : tripPattern.getTrips()) {
+                    TripUpdate removal = TripUpdate.forRemovedTrip(trip.getId(), new Date().getTime() / 1000, previously);
+                    handleRemovedTrip(removal);
+                }
+            }
+            
+            addedTripPatternsByServiceDate.remove(previously);
+        }
+    }
 }

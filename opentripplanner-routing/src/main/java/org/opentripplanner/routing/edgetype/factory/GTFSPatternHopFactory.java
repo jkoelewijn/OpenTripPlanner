@@ -303,6 +303,20 @@ class IndexedLineSegmentComparator implements Comparator<IndexedLineSegment> {
  */
 public class GTFSPatternHopFactory {
 
+    public class Result {
+        private Result( TableTripPattern pattern, List<PatternHop> hops, List<Edge> edges, List<Vertex> vertices) {
+            this.edges = edges;
+            this.hops = hops;
+            this.vertices = vertices;
+            this.pattern = pattern;
+        }
+        
+        public final List<PatternHop> hops;
+        public final List<Edge> edges;
+        public final List<Vertex> vertices;
+        public final TableTripPattern pattern;
+    }
+    
     private static final Logger LOG = LoggerFactory.getLogger(GTFSPatternHopFactory.class);
 
     private static GeometryFactory _geometryFactory = GeometryUtils.getGeometryFactory();
@@ -328,6 +342,8 @@ public class GTFSPatternHopFactory {
     private Map<InterlineSwitchoverKey, PatternInterlineDwell> interlineDwells = new HashMap<InterlineSwitchoverKey, PatternInterlineDwell>();
 
     HashMap<ScheduledStopPattern, TableTripPattern> patterns = new HashMap<ScheduledStopPattern, TableTripPattern>();
+    
+    private Map<TableTripPattern, Result> results = new HashMap<TableTripPattern, Result>();
 
     private GtfsStopContext context = new GtfsStopContext();
 
@@ -477,7 +493,8 @@ public class GTFSPatternHopFactory {
 
             /* this trip is not frequency-based, add it to the corresponding trip pattern */
             // maybe rename ScheduledStopPattern to TripPatternKey?
-            TableTripPattern tripPattern = addPatternForTripToGraph(graph, trip, stopTimes);
+            Result result = addPatternForTripToGraph(graph, trip, stopTimes);
+            TableTripPattern tripPattern = result.pattern;
             tripPattern.setTraversable(true);
 
             /* record which block trips belong to so they can be linked up later */
@@ -550,19 +567,20 @@ public class GTFSPatternHopFactory {
         graph.putService(OnBoardDepartService.class, new OnBoardDepartServiceImpl());
     }
     
-    public TableTripPattern addPatternForTripToGraph(Graph graph, Trip trip, List<StopTime> stopTimes) {
+    public Result addPatternForTripToGraph(Graph graph, Trip trip, List<StopTime> stopTimes) {
         ScheduledStopPattern stopPattern = ScheduledStopPattern.fromTrip(trip, stopTimes);
         TableTripPattern tripPattern = patterns.get(stopPattern);
+        Result result = results.get(tripPattern);
         if (tripPattern == null) {
             // it's the first time we are encountering this stops+pickups+serviceId combination
-            T2<TableTripPattern, List<PatternHop>> patternAndHops = makePatternVerticesAndEdges(graph, trip, stopPattern, stopTimes);
-            List<PatternHop> hops = patternAndHops.getSecond();
-            createGeometry(graph, trip, stopTimes, hops);
-            tripPattern = patternAndHops.getFirst();
+            result = makePatternVerticesAndEdges(graph, trip, stopPattern, stopTimes);
+            tripPattern = result.pattern;
+            createGeometry(graph, trip, stopTimes, result.hops);
             patterns.put(stopPattern, tripPattern);
+            results.put(tripPattern, result);
         } 
         tripPattern.addTrip(trip, stopTimes);
-        return tripPattern;
+        return result;
     }
 
     static int cg = 0;
@@ -1148,7 +1166,7 @@ public class GTFSPatternHopFactory {
      * StopTimes are passed in instead of Stops only because they are needed for shape distances.
      * The TripPattern returned is empty; trips should be added to the TripPattern later.
      */
-    private T2<TableTripPattern, List<PatternHop>> makePatternVerticesAndEdges(Graph graph, Trip trip,
+    private Result makePatternVerticesAndEdges(Graph graph, Trip trip,
             ScheduledStopPattern stopPattern, List<StopTime> stopTimes) {
 
         TableTripPattern tripPattern = new TableTripPattern(trip, stopPattern, getServiceId(trip));
@@ -1160,7 +1178,9 @@ public class GTFSPatternHopFactory {
         TraverseMode mode = GtfsLibrary.getTraverseMode(trip.getRoute());
         
         ArrayList<PatternHop> hops = new ArrayList<PatternHop>();
-
+        ArrayList<Edge> edges = new ArrayList<Edge>();
+        ArrayList<Vertex> vertices = new ArrayList<Vertex>();
+        
         // create journey vertices
         PatternArriveVertex psv0arrive, psv1arrive = null;
         PatternDepartVertex psv0depart;
@@ -1174,14 +1194,19 @@ public class GTFSPatternHopFactory {
             if (hopIndex != 0) {
                 psv0arrive = psv1arrive;
                 PatternDwell dwell = new PatternDwell(psv0arrive, psv0depart, hopIndex, tripPattern);
+                edges.add(dwell);
                 if (st0.getArrivalTime() == st0.getDepartureTime())
                     potentiallyUselessDwells.add(dwell); // TODO: verify against old code
             }
             psv1arrive = new PatternArriveVertex(graph, tripPattern, st1);
             context.patternArriveNodes.put(new T2<Stop, Trip>(st1.getStop(), trip), psv1arrive);
 
+            vertices.add(psv0depart);
+            vertices.add(psv1arrive);
+            
             PatternHop hop = new PatternHop(psv0depart, psv1arrive, s0, s1, hopIndex);
             hops.add(hop);
+            edges.add(hop);
 
             TransitStopDepart stopDepart = context.stopDepartNodes.get(s0);
             if (stopDepart == null) {
@@ -1206,11 +1231,11 @@ public class GTFSPatternHopFactory {
                 }
             }
             stopArrive.getStopVertex().addMode(mode);
-            new TransitBoardAlight(stopDepart, psv0depart, hopIndex, mode);
-            new TransitBoardAlight(psv1arrive, stopArrive, hopIndex + 1, mode);
-        }        
+            edges.add(new TransitBoardAlight(stopDepart, psv0depart, hopIndex, mode));
+            edges.add(new TransitBoardAlight(psv1arrive, stopArrive, hopIndex + 1, mode));
+        }
         
-        return new T2<TableTripPattern, List<PatternHop>>(tripPattern, hops);
+        return new Result(tripPattern, hops, edges, vertices);
     }
     
     
