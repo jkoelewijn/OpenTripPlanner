@@ -23,12 +23,11 @@ public class CanceledTripTimes extends DelegatingTripTimes {
         super(sched);
     }
 
-    @Override public int getDepartureTime(int hop) {
-        return TripTimes.CANCELED;
+    @Override public int getAlightType(int stop) {
+        return TripTimes.NO_DROPOFF;
     }
     
-    @Override public int getArrivalTime(int hop) {
-        return TripTimes.CANCELED;
+    @Override public int getBoardType(int stop) {
+        return TripTimes.NO_PICKUP;
     }
-        
 }

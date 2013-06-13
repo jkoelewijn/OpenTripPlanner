@@ -29,19 +29,43 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
     private int[] perStopFlags;
 
     // maybe push pattern and offset into block
-    public UpdatedTripTimes(ScheduledTripTimes sched, UpdateBlock block, int offset) {
+    public UpdatedTripTimes(ScheduledTripTimes sched, TripUpdate tripUpdate, int offset) {
         super(sched);
         this.offset = offset;
-        int nUpdates = block.updates.size();
+        int nUpdates = tripUpdate.getUpdates().size();
         this.arrivals = new int[nUpdates];
         this.departures = new int[nUpdates];
         this.perStopFlags = new int[nUpdates];
         int ui = 0;
-        for (Update update : block.updates) {
-            perStopFlags[ui] |= sched.getBoardType(ui) << SHIFT_PICKUP;
-            perStopFlags[ui] |= sched.getAlightType(ui) << SHIFT_DROPOFF;
-            arrivals[ui] = update.arrive;
-            departures[ui] = update.depart;
+        for (Update update : tripUpdate.getUpdates()) {
+            switch (update.status) {
+            case PASSED:
+                perStopFlags[ui] |= NO_PICKUP << SHIFT_PICKUP;
+                perStopFlags[ui] |= NO_DROPOFF << SHIFT_DROPOFF;
+                arrivals[ui] = TripTimes.PASSED;
+                departures[ui] = TripTimes.PASSED;
+                break;
+            case CANCEL:
+                perStopFlags[ui] |= NO_PICKUP << SHIFT_PICKUP;
+                perStopFlags[ui] |= NO_DROPOFF << SHIFT_DROPOFF;
+                arrivals[ui] = TripTimes.CANCELED;
+                departures[ui] = TripTimes.CANCELED;
+                break;
+            case UNKNOWN:
+            case PLANNED:
+                perStopFlags[ui] |= sched.getBoardType(ui) << SHIFT_PICKUP;
+                perStopFlags[ui] |= sched.getAlightType(ui) << SHIFT_DROPOFF;
+                arrivals[ui] = sched.getArrivalTime(offset + ui - 1);
+                departures[ui] = sched.getDepartureTime(offset + ui);
+                break;
+            case ARRIVED:
+            case PREDICTION:
+                perStopFlags[ui] |= sched.getBoardType(ui) << SHIFT_PICKUP;
+                perStopFlags[ui] |= sched.getAlightType(ui) << SHIFT_DROPOFF;
+                arrivals[ui] = update.arrive;
+                departures[ui] = update.depart;
+                break;
+            }
             ui += 1;
         }
         this.compact();
