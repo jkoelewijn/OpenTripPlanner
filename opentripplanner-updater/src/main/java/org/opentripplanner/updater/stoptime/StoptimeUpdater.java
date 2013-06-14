@@ -66,6 +66,8 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
     @Autowired private GraphService graphService;
     @Setter    private UpdateStreamer updateStreamer;
     @Setter    private static int logFrequency = 2000;
+    
+    private int appliedBlockCount = 0;
 
     /**
      * Factory used for adding ADDED/UNSCHEDULED trips to the graph.
@@ -148,55 +150,55 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
      */
     @Override
     public void run() {
-        int appliedBlockCount = 0;
-        while (true) {
-            List<TripUpdate> tripUpdates = updateStreamer.getUpdates(); 
-            if (tripUpdates == null) {
-                LOG.debug("updates is null");
-                continue;
-            }
+        
+        List<TripUpdate> tripUpdates = updateStreamer.getUpdates(); 
+        if (tripUpdates == null) {
+            LOG.debug("updates is null");
+            return;
+        }
 
-            LOG.debug("message contains {} trip update blocks", tripUpdates.size());
-            int uIndex = 0;
-            for (TripUpdate tripUpdate : tripUpdates) {
-                uIndex += 1;
-                LOG.debug("update block #{} ({} updates) :", uIndex, tripUpdate.getUpdates().size());
-                LOG.trace("{}", tripUpdate.toString());
-                
-                boolean applied = false;
-                switch(tripUpdate.getStatus()) {
-                case ADDED:
-                    if(addedPatternIndex.containsKey(tripUpdate.getTripId())) {
-                        applied = handleModifiedTrip(tripUpdate);
-                    } else {
-                        applied = handleAddedTrip(tripUpdate);
-                    }
-                    break;
-                case CANCELED:
-                    applied = handleCanceledTrip(tripUpdate);
-                    break;
-                case MODIFIED:
+        LOG.debug("message contains {} trip update blocks", tripUpdates.size());
+        int uIndex = 0;
+        for (TripUpdate tripUpdate : tripUpdates) {
+            uIndex += 1;
+            LOG.debug("update block #{} ({} updates) :", uIndex, tripUpdate.getUpdates().size());
+            LOG.trace("{}", tripUpdate.toString());
+            
+            boolean applied = false;
+            switch(tripUpdate.getStatus()) {
+            case ADDED:
+                if(addedPatternIndex.containsKey(tripUpdate.getTripId())) {
                     applied = handleModifiedTrip(tripUpdate);
-                    break;
-                case REMOVED:
-                    applied = handleRemovedTrip(tripUpdate);
-                    break;
-                }
-                
-                if(applied) {
-                   appliedBlockCount++;
                 } else {
-                    LOG.warn("Failed to apply Tripupdate: " + tripUpdate);
+                    applied = handleAddedTrip(tripUpdate);
                 }
-
-                // TODO: logging...
+                break;
+            case CANCELED:
+                applied = handleCanceledTrip(tripUpdate);
+                break;
+            case MODIFIED:
+                applied = handleModifiedTrip(tripUpdate);
+                break;
+            case REMOVED:
+                applied = handleRemovedTrip(tripUpdate);
+                break;
             }
-            LOG.debug("end of update message");
-
-            if(purgeExpiredData) {
-                if(purgeExpiredData()) {
-                    getSnapshot(true);
-                }
+            
+            if(!applied) {
+                LOG.warn("Failed to apply trip update:\n" +  tripUpdate);
+            } else {
+                appliedBlockCount++;
+            }
+            
+            if(appliedBlockCount % logFrequency == 0) {
+                LOG.info("Appplied {0} trip updates.", appliedBlockCount);
+            }
+        }
+        LOG.debug("end of update message");
+        
+        if(purgeExpiredData) {
+            if(purgeExpiredData()) {
+                getSnapshot(true);
             }
         }
     }
