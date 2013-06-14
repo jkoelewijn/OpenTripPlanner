@@ -47,7 +47,6 @@ import org.opentripplanner.routing.trippattern.TripUpdate;
 import org.opentripplanner.routing.trippattern.Update;
 
 import com.google.transit.realtime.GtfsRealtime;
-import com.google.transit.realtime.GtfsRealtime.FeedMessage;
 import com.vividsolutions.jts.geom.Coordinate;
 
 public class GtfsRealtimeAbstractUpdateStreamerTest {
@@ -162,7 +161,7 @@ public class GtfsRealtimeAbstractUpdateStreamerTest {
             
             addFeedHeader(feedMessage, 10);
             feedMessage.clearEntity();
-            entity = createEntity("FT2");
+            entity = createEntity("FT1");
             rtTripUpdate = createTripUpdate(tripId.getId(), startDate, GtfsRealtime.TripDescriptor.ScheduleRelationship.CANCELED);
             entity.setTripUpdate(rtTripUpdate);
             feedMessage.addEntity(entity);
@@ -172,7 +171,7 @@ public class GtfsRealtimeAbstractUpdateStreamerTest {
             
             addFeedHeader(feedMessage, 0);
             feedMessage.clearEntity();
-            entity = createEntity("FT3");
+            entity = createEntity("FT1");
             rtTripUpdate = createTripUpdate(tripId.getId(), startDate, GtfsRealtime.TripDescriptor.ScheduleRelationship.CANCELED);
             entity.setTripUpdate(rtTripUpdate);
             feedMessage.addEntity(entity);
@@ -181,29 +180,7 @@ public class GtfsRealtimeAbstractUpdateStreamerTest {
             assertEquals(0, tripUpdates.size());
         }
         
-        /*{ // filter on entity id
-            addFeedHeader(feedMessage);
-            feedMessage.clearEntity();
-            entity = createEntity("F1");
-            rtTripUpdate = createTripUpdate(tripId.getId(), startDate, GtfsRealtime.TripDescriptor.ScheduleRelationship.CANCELED);
-            entity.setTripUpdate(rtTripUpdate);
-            feedMessage.addEntity(entity);
-            
-            tripUpdates = streamer.getUpdates();
-            assertEquals(1, tripUpdates.size());
-            
-            addFeedHeader(feedMessage);
-            feedMessage.clearEntity();
-            entity = createEntity("F1");
-            rtTripUpdate = createTripUpdate(tripId.getId(), startDate, GtfsRealtime.TripDescriptor.ScheduleRelationship.CANCELED);
-            entity.setTripUpdate(rtTripUpdate);
-            feedMessage.addEntity(entity);
-            
-            tripUpdates = streamer.getUpdates();
-            assertEquals(0, tripUpdates.size());
-        }*/
-        
-        { // filter on trip_id + timestamp (none given)
+        { // filter on entity + timestamp (none given)
             addFeedHeader(feedMessage, 20);
             feedMessage.clearEntity();
             entity = createEntity("FTG1");
@@ -216,7 +193,7 @@ public class GtfsRealtimeAbstractUpdateStreamerTest {
             
             addFeedHeader(feedMessage, 30);
             feedMessage.clearEntity();
-            entity = createEntity("FTG2");
+            entity = createEntity("FTG1");
             rtTripUpdate = createTripUpdate(tripId.getId(), startDate, GtfsRealtime.TripDescriptor.ScheduleRelationship.CANCELED);
             entity.setTripUpdate(rtTripUpdate);
             feedMessage.addEntity(entity);
@@ -224,13 +201,13 @@ public class GtfsRealtimeAbstractUpdateStreamerTest {
             tripUpdates = streamer.getUpdates();
             assertEquals(1, tripUpdates.size());
         }
-            
-        { // filter on trip_id + timestamp (given)
+        
+        { // filter on entity + timestamp (given)
             addFeedHeader(feedMessage, 40);
             feedMessage.clearEntity();
             entity = createEntity("F3");
-            rtTripUpdate = createTripUpdate("G", startDate, GtfsRealtime.TripDescriptor.ScheduleRelationship.CANCELED);
-            rtTripUpdate.setTimestamp(5);
+            rtTripUpdate = createTripUpdate(tripId.getId(), startDate, GtfsRealtime.TripDescriptor.ScheduleRelationship.CANCELED);
+            rtTripUpdate.setTimestamp(6);
             entity.setTripUpdate(rtTripUpdate);
             feedMessage.addEntity(entity);
             
@@ -239,8 +216,8 @@ public class GtfsRealtimeAbstractUpdateStreamerTest {
             
             addFeedHeader(feedMessage, 50);
             feedMessage.clearEntity();
-            entity = createEntity("F4");
-            rtTripUpdate = createTripUpdate("G", startDate, GtfsRealtime.TripDescriptor.ScheduleRelationship.CANCELED);
+            entity = createEntity("F3");
+            rtTripUpdate = createTripUpdate(tripId.getId(), startDate, GtfsRealtime.TripDescriptor.ScheduleRelationship.CANCELED);
             rtTripUpdate.setTimestamp(10);
             entity.setTripUpdate(rtTripUpdate);
             feedMessage.addEntity(entity);
@@ -250,8 +227,8 @@ public class GtfsRealtimeAbstractUpdateStreamerTest {
             
             addFeedHeader(feedMessage, 60);
             feedMessage.clearEntity();
-            entity = createEntity("F5");
-            rtTripUpdate = createTripUpdate("G", startDate, GtfsRealtime.TripDescriptor.ScheduleRelationship.CANCELED);
+            entity = createEntity("F3");
+            rtTripUpdate = createTripUpdate(tripId.getId(), startDate, GtfsRealtime.TripDescriptor.ScheduleRelationship.CANCELED);
             rtTripUpdate.setTimestamp(5);
             entity.setTripUpdate(rtTripUpdate);
             feedMessage.addEntity(entity);
@@ -422,7 +399,7 @@ public class GtfsRealtimeAbstractUpdateStreamerTest {
 
     private GtfsRealtime.FeedEntity.Builder createEntity(String id) {
         GtfsRealtime.FeedEntity.Builder entity = GtfsRealtime.FeedEntity.newBuilder();
-        entity.setId("1");
+        entity.setId(id);
         return entity;
     }
     
