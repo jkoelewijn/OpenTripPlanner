@@ -26,24 +26,24 @@ import com.google.transit.realtime.GtfsRealtime;
 import com.google.transit.realtime.GtfsRealtime.FeedMessage;
 
 public class GtfsRealtimeHttpUpdateStreamer extends GtfsRealtimeAbstractUpdateStreamer {
-	private static final Logger LOG = LoggerFactory.getLogger(GtfsRealtimeHttpUpdateStreamer.class);
-	
+    private static final Logger LOG = LoggerFactory.getLogger(GtfsRealtimeHttpUpdateStreamer.class);
+
     @Setter
     private String url;
 
-	@Override
-	protected FeedMessage getFeedMessage() {
+    @Override
+    protected FeedMessage getFeedMessage() {
         FeedMessage feed = null;
-		try {
-	        InputStream is = HttpUtils.getData(url);
-			feed = GtfsRealtime.FeedMessage.parseFrom(is);
-		} catch (IOException e) {
-			LOG.warn("Failed to parse gtfs-rt feed from " + url + ":", e);
-		}
+        try {
+            InputStream is = HttpUtils.getData(url);
+            feed = GtfsRealtime.FeedMessage.parseFrom(is, extensionRegistry);
+        } catch (IOException e) {
+            LOG.warn("Failed to parse gtfs-rt feed from " + url + ":", e);
+        }
         return feed;
-	}
+    }
 
     public String toString() {
-    	return "GtfsRealtimeHttpUpdateStreamer(" + url + ")";
+        return "GtfsRealtimeHttpUpdateStreamer(" + url + ")";
     }
 }

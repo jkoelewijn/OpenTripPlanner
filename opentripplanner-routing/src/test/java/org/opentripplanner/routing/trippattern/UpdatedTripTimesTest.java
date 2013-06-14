@@ -163,4 +163,39 @@ public class UpdatedTripTimesTest {
         assertFalse(updateTriptimesA.canAlight(1));
         assertTrue(updateTriptimesA.canBoard(1));
     }
+
+
+    @Test
+    public void testWheelchairAccessible() {
+        TripUpdate tripUpdate;
+        UpdatedTripTimes updateTriptimesA;
+        
+        assertFalse(originalTripTimesA.isWheelchairAccessible());
+        
+        List<Update> updates = new LinkedList<Update>();        
+        tripUpdate = TripUpdate.forUpdatedTrip(tripId, 0, new ServiceDate(), updates, new Integer(1));
+        
+        updateTriptimesA = new UpdatedTripTimes(originalTripTimesA, tripUpdate, 0);
+        assertTrue(updateTriptimesA.isWheelchairAccessible());
+        
+        tripUpdate = TripUpdate.forUpdatedTrip(tripId, 0, new ServiceDate(), updates, null);
+        updateTriptimesA = new UpdatedTripTimes(originalTripTimesA, tripUpdate, 0);
+        assertFalse(updateTriptimesA.isWheelchairAccessible());
+        
+        originalTripTimesA.getTrip().setWheelchairAccessible(1);
+        assertTrue(originalTripTimesA.isWheelchairAccessible());
+
+        tripUpdate = TripUpdate.forUpdatedTrip(tripId, 0, new ServiceDate(), updates, new Integer(1));
+        updateTriptimesA = new UpdatedTripTimes(originalTripTimesA, tripUpdate, 0);
+        assertTrue(updateTriptimesA.isWheelchairAccessible());
+
+        tripUpdate = TripUpdate.forUpdatedTrip(tripId, 0, new ServiceDate(), updates, new Integer(0));
+        updateTriptimesA = new UpdatedTripTimes(originalTripTimesA, tripUpdate, 0);
+        assertFalse(updateTriptimesA.isWheelchairAccessible());
+        
+
+        tripUpdate = TripUpdate.forUpdatedTrip(tripId, 0, new ServiceDate(), updates, null);
+        updateTriptimesA = new UpdatedTripTimes(originalTripTimesA, tripUpdate, 0);
+        assertTrue(updateTriptimesA.isWheelchairAccessible());
+    }
 }

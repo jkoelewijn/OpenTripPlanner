@@ -36,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import com.google.protobuf.ExtensionRegistry;
 import com.google.transit.realtime.GtfsRealtime;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
 
@@ -47,6 +48,12 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
     private static final SimpleDateFormat ymdParser = new SimpleDateFormat("yyyyMMdd");
     {
         ymdParser.setTimeZone(TimeZone.getTimeZone("GMT"));
+    }
+
+    protected ExtensionRegistry extensionRegistry = ExtensionRegistry.newInstance();
+    {
+        extensionRegistry.add(GtfsRealtime.deviated);
+        extensionRegistry.add(GtfsRealtime.wheelchairAccessible);
     }
     
     @Autowired
@@ -127,6 +134,13 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
             updates.add(u);
         }
 
+        if(tripUpdate.hasVehicle()) {
+            GtfsRealtime.VehicleDescriptor vehicle = tripUpdate.getVehicle();
+            if(vehicle.hasExtension(GtfsRealtime.wheelchairAccessible)) {
+                return TripUpdate.forUpdatedTrip(tripId, timestamp, serviceDate, updates, vehicle.getExtension(GtfsRealtime.wheelchairAccessible));
+            }
+        }
+
         return TripUpdate.forUpdatedTrip(tripId, timestamp, serviceDate, updates);
     }
 
@@ -175,6 +189,13 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
 
         Trip trip = new Trip();
         trip.setId(tripId);
+        
+        if(tripUpdate.hasVehicle()) {
+            GtfsRealtime.VehicleDescriptor vehicle = tripUpdate.getVehicle();
+            if(vehicle.hasExtension(GtfsRealtime.wheelchairAccessible)) {
+                trip.setWheelchairAccessible(vehicle.getExtension(GtfsRealtime.wheelchairAccessible));
+            }
+        }
 
         AgencyAndId routeId = new AgencyAndId(defaultAgencyId, tripUpdate.getTrip().getRouteId());
         Route route = transitIndexService.getAllRoutes().get(routeId);

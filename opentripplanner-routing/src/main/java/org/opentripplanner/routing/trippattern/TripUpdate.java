@@ -43,17 +43,24 @@ public class TripUpdate extends AbstractUpdate {
     /** The trip to add, for ADDED updates. */
     @Getter
     private final Trip trip;
+    
+    /** Whether this trip is wheelchair accessible. If null, than the value from the scheduled
+     * trip is used.
+     */
+    @Getter
+    private final Integer wheelchairAccessible;
 
     private final List<Update> updates;
 
     @Getter
     private final Status status;
 
-    protected TripUpdate(AgencyAndId tripId, long timestamp, ServiceDate serviceDate, Status status, List<Update> updates, Trip trip) {
+    protected TripUpdate(AgencyAndId tripId, long timestamp, ServiceDate serviceDate, Status status, List<Update> updates, Trip trip, Integer wheelchairAccessible) {
         super(tripId, timestamp, serviceDate);
         this.status = status;
         this.updates = updates;
         this.trip = trip;
+        this.wheelchairAccessible = wheelchairAccessible;
     }
 
     public List<Update> getUpdates() {
@@ -76,11 +83,11 @@ public class TripUpdate extends AbstractUpdate {
     }
     
     public static TripUpdate forCanceledTrip(AgencyAndId tripId, long timestamp, ServiceDate serviceDate) {
-        return new TripUpdate(tripId, timestamp, serviceDate, Status.CANCELED, Collections.<Update> emptyList(), null);
+        return new TripUpdate(tripId, timestamp, serviceDate, Status.CANCELED, Collections.<Update> emptyList(), null, null);
     }
     
     public static TripUpdate forRemovedTrip(AgencyAndId tripId, long timestamp, ServiceDate serviceDate) {
-        return new TripUpdate(tripId, timestamp, serviceDate, Status.REMOVED, Collections.<Update> emptyList(), null);
+        return new TripUpdate(tripId, timestamp, serviceDate, Status.REMOVED, Collections.<Update> emptyList(), null, null);
     }
     
     public static TripUpdate forAddedTrip(Trip trip, long timestamp, ServiceDate serviceDate,  List<Update> stopTimes) {
@@ -89,14 +96,20 @@ public class TripUpdate extends AbstractUpdate {
         if(stopTimes == null || stopTimes.size() < 2)
             throw new IllegalArgumentException("At least two stop times need to be supplied.");
 
-        return new TripUpdate(trip.getId(), timestamp, serviceDate, Status.ADDED, stopTimes, trip);
+        return new TripUpdate(trip.getId(), timestamp, serviceDate, Status.ADDED, stopTimes, trip, trip.getWheelchairAccessible());
     }
     
     public static TripUpdate forUpdatedTrip(AgencyAndId tripId, long timestamp, ServiceDate serviceDate, List<Update> updates) {
         if(updates == null || updates.isEmpty())
             throw new IllegalArgumentException("At least one update needs to be supplied.");
 
-        return new TripUpdate(tripId, timestamp, serviceDate, Status.MODIFIED, updates, null);
+        return new TripUpdate(tripId, timestamp, serviceDate, Status.MODIFIED, updates, null, null);
+    }
+    
+    public static TripUpdate forUpdatedTrip(AgencyAndId tripId, long timestamp,
+            ServiceDate serviceDate, List<Update> updates, Integer wheelchairAccessible) {
+
+        return new TripUpdate(tripId, timestamp, serviceDate, Status.MODIFIED, updates, null, wheelchairAccessible);
     }
 
     /**
