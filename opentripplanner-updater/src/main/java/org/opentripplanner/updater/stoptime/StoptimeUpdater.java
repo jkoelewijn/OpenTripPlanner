@@ -102,6 +102,8 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
     
     private Map<ServiceDate, Set<TableTripPattern>> addedTripPatternsByServiceDate = new HashMap<ServiceDate, Set<TableTripPattern>>();
     
+    private ServiceDate lastPurgeDate = new ServiceDate();
+    
     // nothing in the timetable snapshot binds it to one graph. we could use this updater for all
     // graphs at once
     private Graph graph;
@@ -128,10 +130,14 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
         graph.timetableSnapshotSource = this;
     }
     
-    public synchronized TimetableResolver getSnapshot() {
+    public TimetableResolver getSnapshot() {
+        return getSnapshot(false);
+    }
+    
+    private synchronized TimetableResolver getSnapshot(boolean force) {
         long now = System.currentTimeMillis();
-        if (now - lastSnapshotTime > maxSnapshotFrequency) {
-            if (buffer.isDirty()) {
+        if (force || now - lastSnapshotTime > maxSnapshotFrequency) {
+            if (force || buffer.isDirty()) {
                 LOG.debug("Committing {}", buffer.toString());
                 snapshot = buffer.commit();
             } else {
@@ -194,9 +200,11 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
                 // TODO: logging...
             }
             LOG.debug("end of update message");
-            
+
             if(purgeExpiredData) {
-                removeExpiredData();
+                if(purgeExpiredData()) {
+                    getSnapshot(true);
+                }
             }
         }
     }
@@ -378,9 +386,15 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
         return "Streaming stoptime updater with update streamer = " + s;
     }
 
-    private void removeExpiredData() {
+    private boolean purgeExpiredData() {
         ServiceDate today = new ServiceDate();
         ServiceDate previously = today.previous().previous(); // Just to be safe... 
+        
+        if(lastPurgeDate.compareTo(previously) > 0) {
+            return false;
+        }
+        
+        LOG.debug("purging expired realtime data");
         
         if(addedTripPatternsByServiceDate.containsKey(previously)) {
             for(TableTripPattern tripPattern : addedTripPatternsByServiceDate.get(previously)) {
@@ -392,5 +406,9 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
             
             addedTripPatternsByServiceDate.remove(previously);
         }
+        
+        lastPurgeDate = previously;
+        
+        return buffer.purgeExpiredData(previously);
     }
 }

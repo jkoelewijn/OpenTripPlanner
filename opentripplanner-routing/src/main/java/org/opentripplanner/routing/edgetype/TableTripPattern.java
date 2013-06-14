@@ -21,7 +21,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
-import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlTransient;
 
 import lombok.Delegate;
@@ -179,7 +178,7 @@ public class TableTripPattern implements TripPattern, Serializable {
         Timetable timetable = scheduledTimetable;
         TimetableResolver snapshot = options.rctx.timetableSnapshot;
         if (snapshot != null)
-            timetable = snapshot.resolve(this);
+            timetable = snapshot.resolve(this, sd.getServiceDate());
 
         if(options.isWheelchairAccessible() && getStops().get(stopIndex).getWheelchairBoarding() != TripTimes.WHEELCHAIR_ACCESSIBLE)
             return null;
