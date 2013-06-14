@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+import "gtfs-realtime.proto";
+
+option java_package = "com.google.transit.realtime";
+package transit_realtime;
+
+// bplanner extension
+extend VehicleDescriptor {
+	optional bool deviated = 1061 [default = false]; // is the vehicle deviated it's path
+	optional int32 wheelchairAccessible = 1062 [default = 0]; // is vehicle wheelchair accessible
+}
