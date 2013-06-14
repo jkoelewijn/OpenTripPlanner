@@ -27,10 +27,15 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
     private int[] departures;
 
     private int[] perStopFlags;
+    
+    private boolean wheelchairAccessible;
 
     // maybe push pattern and offset into block
     public UpdatedTripTimes(ScheduledTripTimes sched, TripUpdate tripUpdate, int offset) {
         super(sched);
+        this.wheelchairAccessible = tripUpdate.getWheelchairAccessible() == null
+                                  ? sched.isWheelchairAccessible()
+                                  : tripUpdate.getWheelchairAccessible() == TripTimes.WHEELCHAIR_ACCESSIBLE;
         this.offset = offset;
         int nUpdates = tripUpdate.getUpdates().size();
         this.arrivals = new int[nUpdates];
@@ -117,6 +122,10 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
             return super.getBoardType(stopIndex);
 
         return (perStopFlags[update] & MASK_PICKUP) >> SHIFT_PICKUP;
+    }
+    
+    @Override public boolean isWheelchairAccessible() {
+        return wheelchairAccessible;
     }
 
     @Override public boolean compact() {
