@@ -203,7 +203,7 @@ public class TableTripPattern implements TripPattern, Serializable {
         Timetable timetable = scheduledTimetable;
         TimetableResolver snapshot = options.rctx.timetableSnapshot;
         if (snapshot != null)
-            timetable = snapshot.resolve(this);
+            timetable = snapshot.resolve(this, sd.getServiceDate());
 
         if(options.isWheelchairAccessible() && getStops().get(stopIndex).getWheelchairBoarding() != TripTimes.WHEELCHAIR_ACCESSIBLE)
             return null;
