@@ -18,6 +18,8 @@ import java.io.Serializable;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlRootElement;
 
+import lombok.Getter;
+
 import org.onebusaway.gtfs.model.AgencyAndId;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
@@ -38,26 +40,27 @@ public class TripsModelInfo implements Serializable {
     public TripsModelInfo() {
     }
 
-    public String getId() {
-        return id;
-    }
-
+    @Getter
     @XmlAttribute
     @JsonSerialize
     String headsign;
 
+    @Getter
     @XmlAttribute
     @JsonSerialize
     Integer numberOfTrips;
 
+    @Getter
     @XmlAttribute
     @JsonSerialize
     String calendarId;
 
+    @Getter
     @XmlAttribute
     @JsonSerialize
     String id;
 
+    @Getter
     @XmlAttribute
     @JsonSerialize
     String agency;

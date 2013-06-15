@@ -14,6 +14,7 @@
 package org.opentripplanner.routing.edgetype;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.onebusaway.gtfs.model.AgencyAndId;
@@ -71,4 +72,7 @@ public class ScheduledStopPattern {
         return new ScheduledStopPattern(stops, pickups, dropoffs, trip.getServiceId());
     }
 
+    public List<Stop> getStops() {
+        return Collections.unmodifiableList(stops);
+    }
 }
