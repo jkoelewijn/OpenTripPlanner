@@ -112,9 +112,9 @@ public class RouteVariant implements Serializable {
         // needed for JAXB but unused
     }
 
-    public RouteVariant(Route route, ArrayList<Stop> stops) {
+    public RouteVariant(Route route, List<Stop> stops) {
         this.route = route;
-        this.stops = stops;
+        this.stops = new ArrayList<Stop>(stops);
         trips = new ArrayList<TripsModelInfo>();
         segments = new ArrayList<RouteSegment>();
         exemplarSegments = new ArrayList<RouteSegment>();
@@ -274,4 +274,16 @@ public class RouteVariant implements Serializable {
         }
     }
 
+    public void removeTrip(Trip trip) {
+        for(int i = 0; i < trips.size(); ++i) {
+            TripsModelInfo tripInfo = trips.get(i);
+            if(trip.getServiceId().getId().equals(tripInfo.getCalendarId())
+                    && trip.getId().getAgencyId().equals(tripInfo.getAgency())
+                    && trip.getId().getId().equals(tripInfo.getId())) {
+                
+                trips.remove(i);
+                return;
+            }
+        }
+    }
 }

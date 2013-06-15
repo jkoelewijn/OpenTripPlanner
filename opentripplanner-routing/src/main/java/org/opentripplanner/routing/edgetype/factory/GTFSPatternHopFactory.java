@@ -304,17 +304,31 @@ class IndexedLineSegmentComparator implements Comparator<IndexedLineSegment> {
 public class GTFSPatternHopFactory {
 
     public class Result {
-        private Result( TableTripPattern pattern, List<PatternHop> hops, List<Edge> edges, List<Vertex> vertices) {
+        private Result(Trip trip, ScheduledStopPattern stopPattern, TableTripPattern tripPattern,
+                List<PatternHop> hops, List<Edge> edges, List<Vertex> vertices) {
+            this.trip = trip;
             this.edges = edges;
             this.hops = hops;
             this.vertices = vertices;
-            this.pattern = pattern;
+            this.stopPattern = stopPattern;
+            this.tripPattern = tripPattern;
         }
         
+        public Result(Trip trip, Result result) {
+            this.trip = trip;
+            this.edges = result.edges;
+            this.hops = result.hops;
+            this.vertices = result.vertices;
+            this.stopPattern = result.stopPattern;
+            this.tripPattern = result.tripPattern;
+        }
+
+        public final Trip trip;
         public final List<PatternHop> hops;
         public final List<Edge> edges;
         public final List<Vertex> vertices;
-        public final TableTripPattern pattern;
+        public final ScheduledStopPattern stopPattern;
+        public final TableTripPattern tripPattern;
     }
     
     private static final Logger LOG = LoggerFactory.getLogger(GTFSPatternHopFactory.class);
@@ -494,7 +508,7 @@ public class GTFSPatternHopFactory {
             /* this trip is not frequency-based, add it to the corresponding trip pattern */
             // maybe rename ScheduledStopPattern to TripPatternKey?
             Result result = addPatternForTripToGraph(graph, trip, stopTimes);
-            TableTripPattern tripPattern = result.pattern;
+            TableTripPattern tripPattern = result.tripPattern;
             tripPattern.setTraversable(true);
 
             /* record which block trips belong to so they can be linked up later */
@@ -574,13 +588,13 @@ public class GTFSPatternHopFactory {
         if (tripPattern == null) {
             // it's the first time we are encountering this stops+pickups+serviceId combination
             result = makePatternVerticesAndEdges(graph, trip, stopPattern, stopTimes);
-            tripPattern = result.pattern;
+            tripPattern = result.tripPattern;
             createGeometry(graph, trip, stopTimes, result.hops);
             patterns.put(stopPattern, tripPattern);
             results.put(tripPattern, result);
         } 
         tripPattern.addTrip(trip, stopTimes);
-        return result;
+        return new Result(trip, result);
     }
 
     static int cg = 0;
@@ -1235,7 +1249,7 @@ public class GTFSPatternHopFactory {
             edges.add(new TransitBoardAlight(psv1arrive, stopArrive, hopIndex + 1, mode));
         }
         
-        return new Result(tripPattern, hops, edges, vertices);
+        return new Result(trip, stopPattern, tripPattern, hops, edges, vertices);
     }
     
     

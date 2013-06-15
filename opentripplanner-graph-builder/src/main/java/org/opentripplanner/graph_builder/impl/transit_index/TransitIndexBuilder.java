@@ -88,6 +88,8 @@ public class TransitIndexBuilder implements GraphBuilderWithGtfsDao {
 
     private HashMap<AgencyAndId, HashSet<Stop>> stopsByRoute = new HashMap<AgencyAndId, HashSet<Stop>>();
 
+    private HashMap<AgencyAndId, TableTripPattern> patternsForTrip = new HashMap<AgencyAndId, TableTripPattern>();
+    
     private HashMap<AgencyAndId, Stop> stops = new HashMap<AgencyAndId, Stop>();
 
     private HashMap<AgencyAndId, Route> routes = new HashMap<AgencyAndId, Route>();
@@ -107,6 +109,8 @@ public class TransitIndexBuilder implements GraphBuilderWithGtfsDao {
     public void buildGraph(Graph graph) {
         LOG.debug("Building transit index");
 
+        createTripPatternMapping(graph);
+        
         createRouteVariants(graph);
         indexTableTripPatternByTrip(graph);
 
@@ -138,10 +142,11 @@ public class TransitIndexBuilder implements GraphBuilderWithGtfsDao {
         if (service == null) {
             service = new TransitIndexServiceImpl(variantsByAgency, variantsByRoute,
                     variantsByTrip, preBoardEdges, preAlightEdges, tableTripPatternsByTrip, directionsByRoute, stopsByRoute,
-                    routes, stops, modes);
+                    patternsForTrip, routes, stops, modes);
         } else {
             service.merge(variantsByAgency, variantsByRoute, variantsByTrip, preBoardEdges,
-                    preAlightEdges, tableTripPatternsByTrip, directionsByRoute, stopsByRoute, routes, stops, modes);
+                    preAlightEdges, tableTripPatternsByTrip, directionsByRoute, stopsByRoute,
+                    patternsForTrip, routes, stops, modes);
         }
 
         insertCalendarData(service);
@@ -154,6 +159,19 @@ public class TransitIndexBuilder implements GraphBuilderWithGtfsDao {
         service.setOvernightBreak(findOvernightBreak());
 
         graph.putService(TransitIndexService.class, service);
+    }
+
+    private void createTripPatternMapping(Graph graph) {
+        for (TransitStopDepart tsd : filter(graph.getVertices(), TransitStopDepart.class)) {
+            for (TransitBoardAlight tba : filter(tsd.getOutgoing(), TransitBoardAlight.class)) {
+                if (!tba.isBoarding())
+                    continue;
+                TableTripPattern pattern = tba.getPattern();
+                for (Trip trip : pattern.getTrips()) {
+                    patternsForTrip.put(trip.getId(), pattern);
+                }
+            }
+        }
     }
 
     /**
