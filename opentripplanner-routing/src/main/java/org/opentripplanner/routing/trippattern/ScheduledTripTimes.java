@@ -61,6 +61,8 @@ public class ScheduledTripTimes extends TripTimes implements Serializable {
     private int[] arrivalTimes; 
 
     private int[] perStopFlags;
+    
+    protected int[] stopSequences;
 
     /** The provided stopTimes are assumed to be pre-filtered, valid, and monotonically increasing. */ 
     public ScheduledTripTimes(Trip trip, List<StopTime> stopTimes) {
@@ -70,14 +72,17 @@ public class ScheduledTripTimes extends TripTimes implements Serializable {
         departureTimes = new int[nHops];
         arrivalTimes = new int[nHops];
         perStopFlags = new int[nStops];
+        stopSequences = new int[nStops];
         // this might be clearer if time array indexes were stops instead of hops
         for (int hop = 0; hop < nHops; hop++) {
             departureTimes[hop] = stopTimes.get(hop).getDepartureTime();
             arrivalTimes[hop] = stopTimes.get(hop + 1).getArrivalTime();
         }
         for (int stop = 0; stop < nStops; stop++) {
-            perStopFlags[stop] |= stopTimes.get(stop).getPickupType () << SHIFT_PICKUP;
-            perStopFlags[stop] |= stopTimes.get(stop).getDropOffType() << SHIFT_DROPOFF;
+            StopTime stopTime = stopTimes.get(stop);
+            stopSequences[stop] = stopTime.getStopSequence();
+            perStopFlags[stop] |= stopTime.getPickupType () << SHIFT_PICKUP;
+            perStopFlags[stop] |= stopTime.getDropOffType() << SHIFT_DROPOFF;
         }
         this.headsigns = makeHeadsignsArray(stopTimes);
         // If all dwell times are 0, arrival times array is not needed. Attempt to save some memory.
@@ -160,6 +165,15 @@ public class ScheduledTripTimes extends TripTimes implements Serializable {
             return PICKUP;
         return (perStopFlags[stopIndex] & MASK_PICKUP) >> SHIFT_PICKUP;
     }
+    
+    @Override
+    public int getStopSequence(int stopIndex) {
+        if(stopSequences != null) {
+            return stopSequences[stopIndex];
+        }
+        
+        return stopIndex + 1;
+    }
 
     @Override
     public boolean isWheelchairAccessible() {
@@ -169,7 +183,10 @@ public class ScheduledTripTimes extends TripTimes implements Serializable {
     /** {@inheritDoc} Replaces the arrivals array with null if all dwell times are zero. */
     @Override
     public boolean compact() {
-        return compactArrivalsAndDepartures() || compactPerStopFlags();
+        boolean ret = compactArrivalsAndDepartures();
+        ret = compactPerStopFlags() || ret;
+        ret = compactStopSequence() || ret;
+        return ret;
     }
 
     private boolean compactArrivalsAndDepartures() {
@@ -204,6 +221,18 @@ public class ScheduledTripTimes extends TripTimes implements Serializable {
 
         perStopFlags = null;
         return true;
+    }
+
+    private boolean compactStopSequence() {
+        // TODO
+        return false;
+    }
+
+    public void compactStopSequence(ScheduledTripTimes firstTripTime) {
+        if(firstTripTime.stopSequences == null || stopSequences == null)
+            return;
+        if(firstTripTime.stopSequences.equals(stopSequences))
+            stopSequences = firstTripTime.stopSequences;
     }
 
     @SuppressWarnings("unused")
