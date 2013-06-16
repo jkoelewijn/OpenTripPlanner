@@ -129,7 +129,8 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
     }
 
     @Override public boolean compact() {
-        return compactArrivalAndDepartureTimes() || compactPerStopFlags();
+        boolean ret = compactArrivalAndDepartureTimes();
+        return compactPerStopFlags() || ret;
     }
 
     private boolean compactArrivalAndDepartureTimes() {

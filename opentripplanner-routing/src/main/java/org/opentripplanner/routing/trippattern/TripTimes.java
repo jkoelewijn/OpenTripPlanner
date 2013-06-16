@@ -110,6 +110,9 @@ public abstract class TripTimes {
         return getBoardType(stopIndex) != TripTimes.NO_PICKUP;
     }
 
+    /** Return the stopSequence for the given stop. */
+    public abstract int getStopSequence(int stopIndex);
+
     /**
      * @return is this trip wheelchair accessible?
      */
@@ -388,5 +391,4 @@ public abstract class TripTimes {
             return tt1.getDepartureTime(hop) - tt2.getDepartureTime(hop);
         }
     }
-
 }

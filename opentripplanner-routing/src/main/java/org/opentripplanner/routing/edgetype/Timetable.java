@@ -136,6 +136,10 @@ public class Timetable implements Serializable {
         return tripTimes.get(tripIndex).getBoardType(stopIndex);
     }
     
+    public int getStopSequence(int stopIndex, int tripIndex) {
+        return tripTimes.get(tripIndex).getStopSequence(stopIndex);
+    }
+    
     /** Returns if the trip is wheelchair accessible. */
     public boolean isWheelchairAccessible(int trip) {
         return tripTimes.get(trip).isWheelchairAccessible();
@@ -441,8 +445,12 @@ public class Timetable implements Serializable {
      * distinction clear.
      */
     public void addTrip(Trip trip, List<StopTime> stopTimes) {
-        // TODO: double-check that the stops and pickup/dropoffs are right for this trip
-        tripTimes.add(new ScheduledTripTimes(trip, stopTimes));
+        ScheduledTripTimes tripTime = new ScheduledTripTimes(trip, stopTimes);
+        if(!tripTimes.isEmpty()) {
+            ScheduledTripTimes firstTripTime = (ScheduledTripTimes) tripTimes.get(0);
+            tripTime.compactStopSequence(firstTripTime);
+        }
+        tripTimes.add(tripTime);
         // TODO eliminate delegation / encapsulation fail
         pattern.trips.add(trip);
     }

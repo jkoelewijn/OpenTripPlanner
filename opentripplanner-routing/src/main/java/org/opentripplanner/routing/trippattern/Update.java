@@ -24,7 +24,7 @@ public class Update extends AbstractUpdate implements Comparable<Update> {
     public final AgencyAndId stopId;
 
     @Getter
-    public final int stopSeq;
+    public final Integer stopSeq;
 
     @Getter
     public int arrive; // sec since midnight
@@ -35,7 +35,7 @@ public class Update extends AbstractUpdate implements Comparable<Update> {
     @Getter
     public final Status status;
 
-    public Update (AgencyAndId tripId, AgencyAndId stopId, int stopSeq, int arrive, int depart, 
+    public Update (AgencyAndId tripId, AgencyAndId stopId, Integer stopSeq, int arrive, int depart, 
             Status status, long timestamp, ServiceDate serviceDate) {
         super(tripId, timestamp, serviceDate);
         this.stopId = stopId;
@@ -45,6 +45,10 @@ public class Update extends AbstractUpdate implements Comparable<Update> {
         this.status = status;
     }
 
+    public boolean hasStopSequence() {
+        return stopSeq != null;
+    }
+    
     /**
      * This ordering is useful for breaking lists of mixed-trip updates into single-trip blocks.
      * We sort on (tripId, timestamp, serviceDate, stopSequence, depart) because there may be duplicate stops in 
