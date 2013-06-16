@@ -349,7 +349,8 @@ public class GtfsRealtimeAbstractUpdateStreamerTest {
         stopTimeUpdate.setScheduleRelationship(
                 GtfsRealtime.TripUpdate.StopTimeUpdate.ScheduleRelationship.SCHEDULED);
         update = streamer.getStopTimeUpdateForTrip(tripId, timestamp, serviceDate, stopTimeUpdate.build());
-        assertNull(update);
+        assertNotNull(update);
+        assertTrue(update.hasDelay());
 
         setStopTimeEvent(true, stopTimeUpdate, null, today + 10 * 60);
         update = streamer.getStopTimeUpdateForTrip(tripId, timestamp, serviceDate, stopTimeUpdate.build());
