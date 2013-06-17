@@ -59,6 +59,7 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
 
     private static final Logger LOG = LoggerFactory.getLogger(StoptimeUpdater.class);
 
+    @Setter
     @Autowired private GraphService graphService;
     @Setter    private UpdateStreamer updateStreamer;
     @Setter    private static int logFrequency = 2000;
@@ -68,7 +69,7 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
     /**
      * Factory used for adding ADDED/UNSCHEDULED trips to the graph.
      */
-    private GTFSPatternHopFactory hopFactory = new GTFSPatternHopFactory();
+    protected GTFSPatternHopFactory hopFactory = new GTFSPatternHopFactory();
     
     /** 
      * If a timetable snapshot is requested less than this number of milliseconds after the previous 
@@ -91,19 +92,19 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
     
     /** A map from ADDED Trip AgencyAndIds to the TripPatterns that contain them */
     // TODO: index on tripId + serviceId to be accurate...
-    private Map<AgencyAndId, GTFSPatternHopFactory.Result> addedPatternIndex = new HashMap<AgencyAndId, GTFSPatternHopFactory.Result>();
+    protected Map<AgencyAndId, GTFSPatternHopFactory.Result> addedPatternIndex = new HashMap<AgencyAndId, GTFSPatternHopFactory.Result>();
     
-    private Map<TableTripPattern, Set<AgencyAndId>> addedPatternUsageIndex = new HashMap<TableTripPattern, Set<AgencyAndId>>();
+    protected Map<TableTripPattern, Set<AgencyAndId>> addedPatternUsageIndex = new HashMap<TableTripPattern, Set<AgencyAndId>>();
     
-    private Map<ServiceDate, Set<TableTripPattern>> addedTripPatternsByServiceDate = new HashMap<ServiceDate, Set<TableTripPattern>>();
+    protected Map<ServiceDate, Set<TableTripPattern>> addedTripPatternsByServiceDate = new HashMap<ServiceDate, Set<TableTripPattern>>();
     
-    private ServiceDate lastPurgeDate = new ServiceDate();
+    protected ServiceDate lastPurgeDate = null;
     
     // nothing in the timetable snapshot binds it to one graph. we could use this updater for all
     // graphs at once
-    private Graph graph;
-    private TransitIndexService transitIndexService;
-    private long lastSnapshotTime = -1;
+    protected Graph graph;
+    protected TransitIndexService transitIndexService;
+    protected long lastSnapshotTime = -1;
     
     /**
      * Once the data sources and target graphs have been set, index all trip patterns on the 
@@ -119,12 +120,12 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
         return getSnapshot(false);
     }
     
-    private synchronized TimetableResolver getSnapshot(boolean force) {
+    protected synchronized TimetableResolver getSnapshot(boolean force) {
         long now = System.currentTimeMillis();
         if (force || now - lastSnapshotTime > maxSnapshotFrequency) {
             if (force || buffer.isDirty()) {
                 LOG.debug("Committing {}", buffer.toString());
-                snapshot = buffer.commit();
+                snapshot = buffer.commit(force);
             } else {
                 LOG.debug("Buffer was unchanged, keeping old snapshot.");
             }
@@ -137,7 +138,7 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
     
     /**
      * Repeatedly makes blocking calls to an UpdateStreamer to retrieve new stop time updates,
-     * and applies those updates to scheduled trips.
+     * and applies those updates to the graph.
      */
     @Override
     public void run() {
@@ -353,9 +354,14 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
         return true;
     }
     
-    public void addService(AgencyAndId serviceId, TimeZone timezone, List<ServiceDate> days) {
+    protected boolean addService(AgencyAndId serviceId, TimeZone timezone, List<ServiceDate> days) {
         Graph graph = graphService.getGraph();
         CalendarServiceData data = graph.getService(CalendarServiceData.class);
+        
+        if(data.getServiceIds().contains(serviceId)) {
+            return false;
+        }
+        
         data.putServiceDatesForServiceId(serviceId, days);
 
         LocalizedServiceId localizedServiceId = new LocalizedServiceId(serviceId, timezone);
@@ -364,18 +370,21 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
             dates.add(day.getAsDate(timezone));
         }
         data.putDatesForLocalizedServiceId(localizedServiceId, dates);
+        
+        return true;
     }
 
-    private boolean purgeExpiredData() {
+    protected boolean purgeExpiredData() {
         ServiceDate today = new ServiceDate();
         ServiceDate previously = today.previous().previous(); // Just to be safe... 
         
-        if(lastPurgeDate.compareTo(previously) > 0) {
+        if(lastPurgeDate != null && lastPurgeDate.compareTo(previously) > 0) {
             return false;
         }
         
         LOG.debug("purging expired realtime data");
         
+        boolean removed = false;
         if(addedTripPatternsByServiceDate.containsKey(previously)) {
             for(TableTripPattern tripPattern : addedTripPatternsByServiceDate.get(previously)) {
                 for(Trip trip : tripPattern.getTrips()) {
@@ -385,11 +394,12 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
             }
             
             addedTripPatternsByServiceDate.remove(previously);
+            removed = true;
         }
         
         lastPurgeDate = previously;
         
-        return buffer.purgeExpiredData(previously);
+        return buffer.purgeExpiredData(previously) || removed;
     }
 
     public String toString() {
