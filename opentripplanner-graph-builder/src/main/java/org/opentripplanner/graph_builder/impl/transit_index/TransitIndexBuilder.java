@@ -60,6 +60,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.vividsolutions.jts.geom.Coordinate;
+import com.vividsolutions.jts.geom.Geometry;
+import org.opentripplanner.common.geometry.DirectionUtils;
 
 /**
  * Process GTFS to build transit index for use in patching
@@ -108,11 +110,21 @@ public class TransitIndexBuilder implements GraphBuilderWithGtfsDao {
     @Override
     public void buildGraph(Graph graph) {
         LOG.debug("Building transit index");
+        
+        for(Stop stop : dao.getAllStops()) {
+            stops.put(stop.getId(), stop);
+        }
+        
+        for(Route route : dao.getAllRoutes()) {
+            routes.put(route.getId(), route);
+        }
 
         createTripPatternMapping(graph);
         
         createRouteVariants(graph);
         indexTableTripPatternByTrip(graph);
+        
+        computeStopDirection();
 
         nameVariants(variantsByRoute);
         int totalVariants = 0;
@@ -123,14 +135,6 @@ public class TransitIndexBuilder implements GraphBuilderWithGtfsDao {
                 variant.cleanup();
                 totalTrips += variant.getTrips().size();
             }
-        }
-        
-        for(Stop stop : dao.getAllStops()) {
-            stops.put(stop.getId(), stop);
-        }
-        
-        for(Route route : dao.getAllRoutes()) {
-            routes.put(route.getId(), route);
         }
         
         LOG.debug("Built transit index: " + variantsByAgency.size() + " agencies, "
@@ -216,6 +220,81 @@ public class TransitIndexBuilder implements GraphBuilderWithGtfsDao {
             return -1;
         }
         return best * 60 + 1;
+    }
+
+    private void computeStopDirection() {
+        
+        Map<AgencyAndId, List<Double>> allAngels = new HashMap<AgencyAndId, List<Double>>();
+        for(List<RouteVariant> variants : variantsByRoute.values()) {
+            for(RouteVariant variant : variants) {
+                for(RouteSegment segment : variant.getSegments()) {
+                    Double angle = computeStopDirectionFromSegment(segment);
+                    if(angle == null) continue;
+                    MapUtils.addToMapList(allAngels, segment.stop, angle);
+                }
+            }
+        }
+        
+        for(AgencyAndId stopId : allAngels.keySet()) {
+            
+            List<Double> angles = allAngels.get(stopId);
+            Double theta = .0;
+            for(Double d : angles) {
+                theta += d;
+            }
+            theta /= angles.size();
+            
+            Stop stop = stops.get(stopId);
+            stop.setDirection(getAngleAsDirection(theta));
+        }
+    }
+
+    private Double computeStopDirectionFromSegment(RouteSegment segment) {
+        if(segment.hopOut != null) {
+            Geometry geometry = segment.hopOut.getGeometry();
+            Coordinate[] coordinates = geometry.getCoordinates();
+            if(coordinates.length >= 2)
+                return DirectionUtils.getAzimuth(coordinates[0], coordinates[1]);
+        }
+        if(segment.hopIn != null) {
+            Geometry geometry = segment.hopIn.getGeometry();
+            Coordinate[] coordinates = geometry.getCoordinates();
+            int length = coordinates.length;
+            if(length >= 2)
+                return DirectionUtils.getAzimuth(coordinates[length - 2], coordinates[length - 1]);
+        }
+        
+        return null;
+    }
+
+    private String getAngleAsDirection(double theta) {
+
+        double t = 360 / 8;
+
+        int r = (int) Math.floor((theta + t / 2) / t);
+
+        switch (r) {
+            case 0:
+                return "N";
+            case 1:
+                return "NE";
+            case 2:
+                return "E";
+            case 3:
+                return "SE";
+            case 4:
+                return "S";
+            case -1:
+                return "NW";
+            case -2:
+                return "W";
+            case -3:
+                return "SW";
+            case -4:
+                return "S";
+            default:
+                return "?";
+        }
     }
 
     /**
