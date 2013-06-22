@@ -63,7 +63,7 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
     @Setter
     @Autowired private GraphService graphService;
     @Setter    private UpdateStreamer updateStreamer;
-    @Setter    private static int logFrequency = 2000;
+    @Setter    private int logFrequency = 2000;
     
     private int appliedBlockCount = 0;
 
@@ -195,7 +195,7 @@ public class StoptimeUpdater implements Runnable, TimetableSnapshotSource {
             }
             
             if(appliedBlockCount % logFrequency == 0) {
-                LOG.info("Appplied {0} trip updates.", appliedBlockCount);
+                LOG.info("Appplied {} trip updates.", appliedBlockCount);
             }
         }
         LOG.debug("end of update message");
