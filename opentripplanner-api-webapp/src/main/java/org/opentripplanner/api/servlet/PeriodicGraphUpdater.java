@@ -15,8 +15,14 @@ package org.opentripplanner.api.servlet;
 
 import java.util.LinkedList;
 import java.util.List;
+import org.opentripplanner.api.ws.TransitIndex;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class PeriodicGraphUpdater {
+
+    private static final Logger LOG = LoggerFactory.getLogger(PeriodicGraphUpdater.class);
+    
     private UpdateTask updater;
 
     private long updateFrequency = 1000 * 60 * 5; // five minutes
@@ -81,8 +87,14 @@ public class PeriodicGraphUpdater {
                     now = System.currentTimeMillis();
                 }
                 for (Runnable updater : getUpdaters()) {
-                    System.out.println("running updater " + updater);
-                    updater.run();
+                    LOG.info("running updater: " + updater);
+                    long start = System.currentTimeMillis();
+                    try {
+                        updater.run();
+                    } catch (Exception e) { LOG.warn("Exception while running updater: ", e); }
+                    
+                    long end = System.currentTimeMillis();
+                    LOG.debug("      ran for " + ((end - start) / 1000.0) + " seconds");
                 }
 
                 lastUpdate = now;
