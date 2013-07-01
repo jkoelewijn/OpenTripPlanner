@@ -42,8 +42,44 @@ import org.slf4j.LoggerFactory;
 public abstract class TripTimes {
 
     private static final Logger LOG = LoggerFactory.getLogger(TripTimes.class);
-    public static final int PASSED = -1;
-    public static final int CANCELED = -2;
+    
+    public enum State {
+        PLANNED  (1, true ),
+        PREDICTED(2, true ),
+        PASSED   (3, false),
+        CANCELED (4, false);
+        
+        private int num;
+        private boolean useable;
+        
+        private State(int num, boolean useable) {
+            this.num = num;
+            this.useable = useable;
+        }
+        
+        public boolean isUseable() {
+            return useable;
+        }
+        
+        protected int num() {
+            return num;
+        }
+        
+        protected static State get(int num) {
+            switch(num) {
+                case 1:
+                    return PLANNED;
+                case 2:
+                    return PREDICTED;
+                case 3:
+                    return PASSED;
+                case 4:
+                    return CANCELED;
+                default:
+                    return null;
+            }
+        }
+    }
 
     public static final int WHEELCHAIR_ACCESSIBLE = 1;
 
@@ -51,6 +87,8 @@ public abstract class TripTimes {
     public static final int SHIFT_PICKUP = 1;
     public static final int MASK_DROPOFF = 8|16;
     public static final int SHIFT_DROPOFF = 3;
+    public static final int MASK_STATE = 32|64|128;
+    public static final int SHIFT_STATE = 5;
 
     public static final int PICKUP = 0;
     public static final int DROPOFF = 0;
@@ -100,6 +138,11 @@ public abstract class TripTimes {
      */
     public abstract int getBoardType(int stop);
 
+    /**
+     * @return the state of a given stop (passed, canceled, ...)
+     */
+    public abstract State getState(int stop);
+    
     /** Returns whether passengers can alight at a given stop */
     public boolean canAlight(int stopIndex) {
         return getAlightType(stopIndex) != TripTimes.NO_PICKUP;
@@ -132,23 +175,22 @@ public abstract class TripTimes {
     }
     
     /** 
-     * @return the length of time time in seconds that it takes for the vehicle to traverse each 
+     * @return the length of time in seconds that it takes for the vehicle to traverse each 
      * inter-stop segment ("hop"). 
      */
     public int getRunningTime(int hop) {
-        int arrivalTime   = getArrivalTime(hop);
-        int departureTime = getDepartureTime(hop);
-
-        if(arrivalTime == TripTimes.CANCELED) {
+        if(!getState(hop + 1).isUseable()) {
             return 0;
         }
 
-        while(hop >= 0 && departureTime == TripTimes.CANCELED) {
+        int arrivalTime   = getArrivalTime(hop);
+        int departureTime = getDepartureTime(hop);
+        while(hop >= 0 && !getState(hop).isUseable()) {
             hop--;
             departureTime = getDepartureTime(hop);
         }
 
-        if(departureTime == TripTimes.CANCELED) {
+        if(!getState(hop).isUseable()) {
             return 0;
         }
 
@@ -216,11 +258,12 @@ public abstract class TripTimes {
         int nHops = getNumHops();
         int prevArr = -1;
         for (int hop = 0; hop < nHops; hop++) {
-            int dep = getDepartureTime(hop);
-            int arr = getArrivalTime(hop);
-            if(arr == CANCELED || dep == CANCELED) {
+            if(!getState(hop).isUseable() || !getState(hop + 1).isUseable()) {
                 continue;
             }
+            
+            int dep = getDepartureTime(hop);
+            int arr = getArrivalTime(hop);
 
             if (arr < dep) { // negative hop time
                 LOG.error("Negative hop time in TripTimes at index {}.", hop);
@@ -316,6 +359,9 @@ public abstract class TripTimes {
                 return false;
             }
         }
+        
+        if(!getState(stopIndex).isUseable())
+            return false;
 
         if(boarding && !canBoard(stopIndex))
             return false;

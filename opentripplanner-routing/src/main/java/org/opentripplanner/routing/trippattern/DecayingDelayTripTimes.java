@@ -47,9 +47,7 @@ public class DecayingDelayTripTimes extends DelegatingTripTimes {
     @Override public int getDepartureTime(int hop) {
         int stop = hop;
         if (stop < currentStop) {
-            if (readThrough)
-                return super.getDepartureTime(hop);
-            return TripTimes.PASSED;
+            return super.getDepartureTime(hop);
         }
         int t = super.getDepartureTime(hop);
         int elapsed = t - t0;
@@ -59,13 +57,21 @@ public class DecayingDelayTripTimes extends DelegatingTripTimes {
     @Override public int getArrivalTime(int hop) {
         int stop = hop + 1;
         if (stop < currentStop) {
-            if (readThrough)
-                return super.getArrivalTime(hop);
-            return TripTimes.PASSED;
+            return super.getArrivalTime(hop);
         }
         int t = super.getArrivalTime(hop);
         int elapsed = t - t0;
         return t + decayedDelay(elapsed);
+    }
+
+    @Override public State getState(int stopIndex) {
+        if (stopIndex < currentStop) {
+            if (readThrough)
+                return super.getState(stopIndex);
+            
+            return State.PASSED;
+        }
+        return State.PREDICTED;
     }
         
     private int decayedDelay(int dt) {

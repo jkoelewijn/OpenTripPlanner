@@ -165,6 +165,11 @@ public class ScheduledTripTimes extends TripTimes implements Serializable {
             return PICKUP;
         return (perStopFlags[stopIndex] & MASK_PICKUP) >> SHIFT_PICKUP;
     }
+
+    @Override
+    public State getState(int stop) {
+        return State.PLANNED;
+    }
     
     @Override
     public int getStopSequence(int stopIndex) {
@@ -257,5 +262,4 @@ public class ScheduledTripTimes extends TripTimes implements Serializable {
         else
             return headsigns[hop];
     }
-
 }

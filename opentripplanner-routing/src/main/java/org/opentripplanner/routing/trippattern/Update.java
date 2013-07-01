@@ -109,7 +109,7 @@ public class Update extends AbstractUpdate implements Comparable<Update> {
         PASSED,     // the vehicle has passed this stop, no point trying to board there.
         ARRIVED,    // the vehicle is at this stop. you could still board right now.
         PREDICTION, // the vehicle is expected to arrive/depart at the indicated times.
-        CANCEL,     // the vehicle will not pick up or drop off passengers at this stop.
+        CANCELED,     // the vehicle will not pick up or drop off passengers at this stop.
         PLANNED,    // trip is scheduled to be happening now, but is not broadcasting predictions
         UNKNOWN     // vehicle be broadcasting predictions according to the schedule but it is not
                     // also used if the bus is too far from the planned route (shapes.txt)

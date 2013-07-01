@@ -85,10 +85,10 @@ public class UpdatedTripTimesTest {
         TripUpdate tripUpdate;
         
         List<Update> updates = new LinkedList<Update>();
-        updates.add(new Update(tripId, stop_a, 0, 0, 0, Update.Status.PLANNED, 0, new ServiceDate()));
-        updates.add(new Update(tripId, stop_b, 1, 0, 0, Update.Status.PLANNED, 0, new ServiceDate()));
-        updates.add(new Update(tripId, stop_c, 2, 0, 0, Update.Status.CANCEL , 0, new ServiceDate()));
-        updates.add(new Update(tripId, stop_d, 3, 0, 0, Update.Status.CANCEL , 0, new ServiceDate()));
+        updates.add(new Update(tripId, stop_a, 0, 0, 0, Update.Status.PLANNED , 0, new ServiceDate()));
+        updates.add(new Update(tripId, stop_b, 1, 0, 0, Update.Status.PLANNED , 0, new ServiceDate()));
+        updates.add(new Update(tripId, stop_c, 2, 0, 0, Update.Status.CANCELED, 0, new ServiceDate()));
+        updates.add(new Update(tripId, stop_d, 3, 0, 0, Update.Status.CANCELED, 0, new ServiceDate()));
         
         tripUpdate = TripUpdate.forUpdatedTrip(tripId, 0, new ServiceDate(), updates);
         
@@ -96,15 +96,21 @@ public class UpdatedTripTimesTest {
 
         assertTrue(updateTriptimesA.timesIncreasing());
         
-        assertEquals(1 * 60            , updateTriptimesA.getDepartureTime(1));
-        assertEquals(TripTimes.CANCELED, updateTriptimesA.getDepartureTime(2));
-        assertEquals(TripTimes.CANCELED, updateTriptimesA.getDepartureTime(3));
-        assertEquals(4 * 60            , updateTriptimesA.getDepartureTime(4));
+        assertEquals(1 * 60, updateTriptimesA.getDepartureTime(1));
+        assertEquals(2 * 60, updateTriptimesA.getDepartureTime(2));
+        assertEquals(3 * 60, updateTriptimesA.getDepartureTime(3));
+        assertEquals(4 * 60, updateTriptimesA.getDepartureTime(4));
 
-        assertEquals(1 * 60            , updateTriptimesA.getArrivalTime(0));
-        assertEquals(TripTimes.CANCELED, updateTriptimesA.getArrivalTime(1));
-        assertEquals(TripTimes.CANCELED, updateTriptimesA.getArrivalTime(2));
-        assertEquals(4 * 60            , updateTriptimesA.getArrivalTime(3));
+        assertEquals(1 * 60, updateTriptimesA.getArrivalTime(0));
+        assertEquals(2 * 60, updateTriptimesA.getArrivalTime(1));
+        assertEquals(3 * 60, updateTriptimesA.getArrivalTime(2));
+        assertEquals(4 * 60, updateTriptimesA.getArrivalTime(3));
+        
+        
+        assertEquals(TripTimes.State.PLANNED , updateTriptimesA.getState(0));
+        assertEquals(TripTimes.State.PLANNED , updateTriptimesA.getState(1));
+        assertEquals(TripTimes.State.CANCELED, updateTriptimesA.getState(2));
+        assertEquals(TripTimes.State.CANCELED, updateTriptimesA.getState(3));
 
         assertEquals( 60, updateTriptimesA.getRunningTime(0));
         assertEquals(  0, updateTriptimesA.getRunningTime(1));
@@ -116,8 +122,8 @@ public class UpdatedTripTimesTest {
 
         assertTrue (updateTriptimesA.canAlight(0));
         assertFalse(updateTriptimesA.canAlight(1));
-        assertFalse(updateTriptimesA.canAlight(2));
-        assertFalse(updateTriptimesA.canAlight(3));
+        assertTrue (updateTriptimesA.canAlight(2));
+        assertTrue (updateTriptimesA.canAlight(3));
         assertTrue (updateTriptimesA.canAlight(4));
     }
 
@@ -132,13 +138,18 @@ public class UpdatedTripTimesTest {
         
         UpdatedTripTimes updateTriptimesA = new UpdatedTripTimes(originalTripTimesA, tripUpdate, 3);
 
-        assertEquals(TripTimes.PASSED, updateTriptimesA.getDepartureTime(2));
+        assertEquals(2 * 60     , updateTriptimesA.getDepartureTime(2));
         assertEquals(3 * 60 + 10, updateTriptimesA.getDepartureTime(3));
         assertEquals(4 * 60     , updateTriptimesA.getDepartureTime(4));
 
-        assertEquals(TripTimes.PASSED, updateTriptimesA.getArrivalTime(1));
+        assertEquals(2 * 60     , updateTriptimesA.getArrivalTime(1));
         assertEquals(3 * 60 + 10, updateTriptimesA.getArrivalTime(2));
         assertEquals(4 * 60     , updateTriptimesA.getArrivalTime(3));
+
+        assertEquals(TripTimes.State.PASSED   , updateTriptimesA.getState(0));
+        assertEquals(TripTimes.State.PASSED   , updateTriptimesA.getState(1));
+        assertEquals(TripTimes.State.PASSED   , updateTriptimesA.getState(2));
+        assertEquals(TripTimes.State.PREDICTED, updateTriptimesA.getState(3));
 
         assertFalse(updateTriptimesA.canAlight(1));
     }
@@ -154,11 +165,14 @@ public class UpdatedTripTimesTest {
         
         UpdatedTripTimes updateTriptimesA = new UpdatedTripTimes(originalTripTimesA, tripUpdate, 0);
 
-        assertEquals(TripTimes.PASSED, updateTriptimesA.getDepartureTime(0));
+        assertEquals(TripTimes.State.PASSED , updateTriptimesA.getState(0));
+        assertEquals(TripTimes.State.PLANNED, updateTriptimesA.getState(1));
+        
+        assertEquals( 0, updateTriptimesA.getDepartureTime(0));
         assertEquals(60, updateTriptimesA.getArrivalTime(0));
 
-        assertFalse(updateTriptimesA.canAlight(0));
-        assertFalse(updateTriptimesA.canBoard(0));
+        assertTrue(updateTriptimesA.canAlight(0));
+        assertTrue(updateTriptimesA.canBoard(0));
         
         assertFalse(updateTriptimesA.canAlight(1));
         assertTrue(updateTriptimesA.canBoard(1));

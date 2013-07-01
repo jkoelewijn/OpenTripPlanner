@@ -210,7 +210,7 @@ public class StoptimeUpdaterTest {
         Timetable schedule = resolver.resolve(pattern, null);
         assertNotSame(forToday, schedule);
         assertNotSame(forToday.getTripTimes(tripIndex), schedule.getTripTimes(tripIndex));
-        assertEquals(DecayingDelayTripTimes.class, forToday.getTripTimes(tripIndex).getClass());
+        assertEquals(UpdatedTripTimes.class, forToday.getTripTimes(tripIndex).getClass());
         assertSame(forToday.getTripTimes(tripIndex2), schedule.getTripTimes(tripIndex2));
     }
 

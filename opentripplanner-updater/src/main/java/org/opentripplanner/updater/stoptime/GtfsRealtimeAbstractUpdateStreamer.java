@@ -41,6 +41,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.protobuf.ExtensionRegistry;
 import com.google.transit.realtime.GtfsRealtime;
+import java.util.HashSet;
+import java.util.Set;
 
 public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStreamer {
 
@@ -69,6 +71,12 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
      */
     @Setter
     private String defaultAgencyId;
+
+    /**
+     * Should TripUpdates for trips which don't exist anymore be kept around.
+     */
+    @Setter
+    private boolean keepArchivedData = true;
     
     /**
      * The timestamp of the last feed parsed.
@@ -103,6 +111,12 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
         }
 
         GtfsRealtime.FeedHeader header = feed.getHeader();
+        
+        if(header.hasIncrementality() && header.getIncrementality() != GtfsRealtime.FeedHeader.Incrementality.FULL_DATASET) {
+            LOG.warn("Only FULL_DATASET feeds are supported.");
+            return Collections.emptyList();
+        }
+        
         long feedTimestamp = header.getTimestamp();
         if(feedTimestamp < lastTimestamp) {
             LOG.info("Ignoring feed with old timestamp.");
@@ -110,6 +124,7 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
         }
         lastTimestamp = feedTimestamp;
         
+        Map<String, TripUpdate> currentEntities = new HashMap<String, TripUpdate>();
         List<org.opentripplanner.routing.trippattern.TripUpdate> updates = new ArrayList<org.opentripplanner.routing.trippattern.TripUpdate>();
         for (GtfsRealtime.FeedEntity entity : feed.getEntityList()) {
             if (!entity.hasTripUpdate()) {
@@ -123,8 +138,10 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
 
             if(seenEntities.containsKey(entity.getId())) {
                 TripUpdate processed = seenEntities.get(entity.getId());
-                if(timestamp <= processed.getTimestamp())
+                if(timestamp <= processed.getTimestamp()) {
+                    currentEntities.put(entity.getId(), seenEntities.get(entity.getId()));
                     continue;
+                }
             }
             
             String trip = descriptor.getTripId();
@@ -174,6 +191,22 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
                 LOG.warn("Failed to parse tripUpdate: \n{}", entity);
             }
         }
+        
+        if(!keepArchivedData) {
+            Set<String> removeableTripUpdates = new HashSet<String>(seenEntities.keySet());
+            removeableTripUpdates.removeAll(currentEntities.keySet());
+
+            for(String entityId : removeableTripUpdates) {
+                TripUpdate tripUpdate = seenEntities.get(entityId);
+                TripUpdate removingTripUpdate = TripUpdate.forRemovedTrip(tripUpdate.getTripId(), feedTimestamp, tripUpdate.getServiceDate());
+                updates.add(removingTripUpdate);
+            }
+            
+            seenEntities = currentEntities;
+        } else {
+            currentEntities.putAll(seenEntities);
+        }
+        
         return updates;
     }
 
@@ -314,7 +347,7 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
                 && GtfsRealtime.TripUpdate.StopTimeUpdate.ScheduleRelationship.SKIPPED == stopTimeUpdate
                         .getScheduleRelationship()) {
             Update u = new Update(tripId, stopId, stopSequence,
-                    0, 0, Update.Status.CANCEL, timestamp, serviceDate);
+                    0, 0, Update.Status.CANCELED, timestamp, serviceDate);
             return u;
         } else {
             if(!(stopTimeUpdate.hasArrival() || stopTimeUpdate.hasDeparture())) {
