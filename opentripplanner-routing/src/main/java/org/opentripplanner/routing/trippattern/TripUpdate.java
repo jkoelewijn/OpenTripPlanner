@@ -67,6 +67,10 @@ public class TripUpdate extends AbstractUpdate {
         return Collections.unmodifiableList(updates);
     }
 
+    public boolean isRemoval() {
+        return getStatus() == Status.REMOVED;
+    }
+
     public boolean isCancellation() {
         return getStatus() == Status.CANCELED;
     }
@@ -169,7 +173,7 @@ public class TripUpdate extends AbstractUpdate {
                     increasing = false;
                 if (u.stopSeq - prev_u.stopSeq != 1)
                     sequential = false;
-                if (prev_u.status != Update.Status.CANCEL && u.status != Update.Status.CANCEL
+                if (prev_u.status != Update.Status.CANCELED && u.status != Update.Status.CANCELED
                                 && u.arrive < prev_u.depart)
                     timesCoherent = false;
             }

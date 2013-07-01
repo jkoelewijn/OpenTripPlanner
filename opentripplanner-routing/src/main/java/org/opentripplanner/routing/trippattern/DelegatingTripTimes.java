@@ -39,6 +39,8 @@ public abstract class DelegatingTripTimes extends TripTimes {
     @Override public int getAlightType(int stopIndex) { return base.getAlightType(stopIndex); }
 
     @Override public int getBoardType(int stopIndex) { return base.getBoardType(stopIndex); }
+
+    @Override public State getState(int stopIndex) { return base.getState(stopIndex); }
     
     @Override public int getStopSequence(int stopIndex) { return base.getStopSequence(stopIndex); }
 

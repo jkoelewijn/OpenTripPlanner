@@ -41,25 +41,29 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
         this.arrivals = new int[nUpdates];
         this.departures = new int[nUpdates];
         this.perStopFlags = new int[nUpdates];
+        
         int ui = 0;
         for (Update update : tripUpdate.getUpdates()) {
             switch (update.status) {
             case PASSED:
-                perStopFlags[ui] |= NO_PICKUP << SHIFT_PICKUP;
-                perStopFlags[ui] |= NO_DROPOFF << SHIFT_DROPOFF;
-                arrivals[ui] = TripTimes.PASSED;
-                departures[ui] = TripTimes.PASSED;
+                perStopFlags[ui] |= sched.getBoardType(ui) << SHIFT_PICKUP;
+                perStopFlags[ui] |= sched.getAlightType(ui) << SHIFT_DROPOFF;
+                perStopFlags[ui] |= State.PASSED.num() << SHIFT_STATE;
+                arrivals[ui] = sched.getArrivalTime(offset + ui - 1);
+                departures[ui] = sched.getDepartureTime(offset + ui);
                 break;
-            case CANCEL:
-                perStopFlags[ui] |= NO_PICKUP << SHIFT_PICKUP;
-                perStopFlags[ui] |= NO_DROPOFF << SHIFT_DROPOFF;
-                arrivals[ui] = TripTimes.CANCELED;
-                departures[ui] = TripTimes.CANCELED;
+            case CANCELED:
+                perStopFlags[ui] |= sched.getBoardType(ui) << SHIFT_PICKUP;
+                perStopFlags[ui] |= sched.getAlightType(ui) << SHIFT_DROPOFF;
+                perStopFlags[ui] |= State.CANCELED.num() << SHIFT_STATE;
+                arrivals[ui] = sched.getArrivalTime(offset + ui - 1);
+                departures[ui] = sched.getDepartureTime(offset + ui);
                 break;
             case UNKNOWN:
             case PLANNED:
                 perStopFlags[ui] |= sched.getBoardType(ui) << SHIFT_PICKUP;
                 perStopFlags[ui] |= sched.getAlightType(ui) << SHIFT_DROPOFF;
+                perStopFlags[ui] |= State.PLANNED.num() << SHIFT_STATE;
                 arrivals[ui] = sched.getArrivalTime(offset + ui - 1);
                 departures[ui] = sched.getDepartureTime(offset + ui);
                 break;
@@ -67,8 +71,15 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
             case PREDICTION:
                 perStopFlags[ui] |= sched.getBoardType(ui) << SHIFT_PICKUP;
                 perStopFlags[ui] |= sched.getAlightType(ui) << SHIFT_DROPOFF;
-                arrivals[ui] = update.arrive;
-                departures[ui] = update.depart;
+                perStopFlags[ui] |= State.PREDICTED.num() << SHIFT_STATE;
+                
+                if(update.hasDelay()) {
+                    arrivals[ui] = update.delay + sched.getArrivalTime(offset + ui - 1);
+                    departures[ui] = update.delay + sched.getDepartureTime(offset + ui);
+                } else {
+                    arrivals[ui] = update.arrive;
+                    departures[ui] = update.depart;
+                }
                 break;
             }
             ui += 1;
@@ -80,7 +91,7 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
         int stop = hop;
         int update = stop - offset;
         if (update < 0)
-            return TripTimes.PASSED;
+            return super.getDepartureTime(hop);
         if (update >= departures.length)
             return super.getDepartureTime(hop);
         return departures[update];
@@ -90,7 +101,7 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
         int stop = hop + 1;
         int update = stop - offset;
         if (update < 0)
-            return TripTimes.PASSED;
+            return super.getArrivalTime(hop);
         if (update >= departures.length)
             return super.getArrivalTime(hop);
         if (arrivals == null)
@@ -104,7 +115,7 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
 
         int update = stopIndex - offset;
         if (update < 0)
-            return NO_DROPOFF;
+            return super.getAlightType(stopIndex);
         if(update >= perStopFlags.length)
             return super.getAlightType(stopIndex);
 
@@ -117,11 +128,24 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
 
         int update = stopIndex - offset;
         if (update < 0)
-            return NO_PICKUP;
+            return super.getBoardType(stopIndex);
         if(update >= perStopFlags.length)
             return super.getBoardType(stopIndex);
 
         return (perStopFlags[update] & MASK_PICKUP) >> SHIFT_PICKUP;
+    }
+
+    @Override public State getState(int stopIndex) {
+        if(perStopFlags == null)
+            return super.getState(stopIndex);
+
+        int update = stopIndex - offset;
+        if (update < 0)
+            return State.PASSED;
+        if(update >= perStopFlags.length)
+            return super.getState(stopIndex);
+
+        return State.get((perStopFlags[update] & MASK_STATE) >> SHIFT_STATE);
     }
     
     @Override public boolean isWheelchairAccessible() {
@@ -150,7 +174,9 @@ public class UpdatedTripTimes extends DelegatingTripTimes {
             return false;
 
         for(int stop = offset; stop < offset + perStopFlags.length; ++stop) {
-            if(getAlightType(stop) != super.getAlightType(stop) || getBoardType(stop) != super.getBoardType(stop)) {
+            if(getAlightType(stop) != super.getAlightType(stop)
+                    || getBoardType(stop) != super.getBoardType(stop)
+                    || getState(stop) != super.getState(stop)) {
                 return false;
             }
         }
