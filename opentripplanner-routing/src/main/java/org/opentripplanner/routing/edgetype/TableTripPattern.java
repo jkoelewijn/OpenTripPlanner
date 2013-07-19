@@ -24,6 +24,8 @@ import java.util.List;
 import javax.xml.bind.annotation.XmlTransient;
 
 import lombok.Delegate;
+import lombok.Getter;
+import lombok.Setter;
 
 import org.onebusaway.gtfs.model.Stop;
 import org.onebusaway.gtfs.model.Trip;
@@ -94,6 +96,10 @@ public class TableTripPattern implements TripPattern, Serializable {
 
     /** Optimized serviceId code. All trips in a pattern are by definition on the same service. */
     int serviceId; 
+    
+    @Setter
+    @Getter
+    private boolean traversable = false;
     
     public TableTripPattern(Trip exemplar, ScheduledStopPattern stopPattern, int serviceId) {
         this.exemplar = exemplar;
@@ -209,5 +215,4 @@ public class TableTripPattern implements TripPattern, Serializable {
     public Iterator<Integer> getScheduledDepartureTimes(int stopIndex) {
         return scheduledTimetable.getDepartureTimes(stopIndex);
     }
-    
 }

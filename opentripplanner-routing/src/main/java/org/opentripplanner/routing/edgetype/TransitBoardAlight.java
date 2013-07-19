@@ -118,6 +118,10 @@ public class TransitBoardAlight extends TablePatternEdge implements OnBoardForwa
     }
 
     public State traverse(State state0, long arrivalTimeAtStop) {
+        if(!getPattern().isTraversable()) {
+            return null;
+        }
+        
         RoutingContext rctx = state0.getContext();
         RoutingRequest options = state0.getOptions();
         // this method is on State not RoutingRequest because we care whether the user is in

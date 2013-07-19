@@ -85,6 +85,7 @@ import org.opentripplanner.routing.impl.OnBoardDepartServiceImpl;
 import org.opentripplanner.routing.services.FareService;
 import org.opentripplanner.routing.services.FareServiceFactory;
 import org.opentripplanner.routing.services.OnBoardDepartService;
+import org.opentripplanner.routing.services.TransitIndexService;
 import org.opentripplanner.routing.vertextype.PatternArriveVertex;
 import org.opentripplanner.routing.vertextype.PatternDepartVertex;
 import org.opentripplanner.routing.vertextype.TransitStop;
@@ -340,6 +341,11 @@ public class GTFSPatternHopFactory {
         this._dao = context.getDao();
         this._calendarService = context.getCalendarService();
     }
+    
+    public GTFSPatternHopFactory() {
+        this._dao = null;
+        this._calendarService = null;
+    }
 
     
 //  // There's already a departure at this time on this trip pattern. This means
@@ -471,17 +477,8 @@ public class GTFSPatternHopFactory {
 
             /* this trip is not frequency-based, add it to the corresponding trip pattern */
             // maybe rename ScheduledStopPattern to TripPatternKey?
-            ScheduledStopPattern stopPattern = ScheduledStopPattern.fromTrip(trip, stopTimes);
-            TableTripPattern tripPattern = patterns.get(stopPattern);
-            if (tripPattern == null) {
-                // it's the first time we are encountering this stops+pickups+serviceId combination
-                T2<TableTripPattern, List<PatternHop>> patternAndHops = makePatternVerticesAndEdges(graph, trip, stopPattern, stopTimes);
-                List<PatternHop> hops = patternAndHops.getSecond();
-                createGeometry(graph, trip, stopTimes, hops);
-                tripPattern = patternAndHops.getFirst();
-                patterns.put(stopPattern, tripPattern);
-            } 
-            tripPattern.addTrip(trip, stopTimes);
+            TableTripPattern tripPattern = addPatternForTripToGraph(graph, trip, stopTimes);
+            tripPattern.setTraversable(true);
 
             /* record which block trips belong to so they can be linked up later */
             String blockId = trip.getBlockId();
@@ -551,6 +548,21 @@ public class GTFSPatternHopFactory {
         graph.putService(FareService.class, fareServiceFactory.makeFareService());
         graph.putService(ServiceIdToNumberService.class, new ServiceIdToNumberService(context.serviceIds));
         graph.putService(OnBoardDepartService.class, new OnBoardDepartServiceImpl());
+    }
+    
+    public TableTripPattern addPatternForTripToGraph(Graph graph, Trip trip, List<StopTime> stopTimes) {
+        ScheduledStopPattern stopPattern = ScheduledStopPattern.fromTrip(trip, stopTimes);
+        TableTripPattern tripPattern = patterns.get(stopPattern);
+        if (tripPattern == null) {
+            // it's the first time we are encountering this stops+pickups+serviceId combination
+            T2<TableTripPattern, List<PatternHop>> patternAndHops = makePatternVerticesAndEdges(graph, trip, stopPattern, stopTimes);
+            List<PatternHop> hops = patternAndHops.getSecond();
+            createGeometry(graph, trip, stopTimes, hops);
+            tripPattern = patternAndHops.getFirst();
+            patterns.put(stopPattern, tripPattern);
+        } 
+        tripPattern.addTrip(trip, stopTimes);
+        return tripPattern;
     }
 
     static int cg = 0;
@@ -1000,6 +1012,37 @@ public class GTFSPatternHopFactory {
                 new PreAlightEdge(arrive, stopVertex);
                 new PreBoardEdge(stopVertex, depart);
             }
+        }
+    }
+    
+    public void bootstrapContextFromTransitIndex(TransitIndexService transitIndexService, CalendarService calendarService,
+            ServiceIdToNumberService serviceIdToNumberService) {
+        for(Stop stop : transitIndexService.getAllStops().values()) {
+            PreAlightEdge preAlightEdge = transitIndexService.getPreAlightEdge(stop.getId());
+            if(preAlightEdge != null) {
+                context.stopArriveNodes.put(stop, (TransitStopArrive) preAlightEdge.getFromVertex());
+            }
+
+            PreBoardEdge preBoardEdge = transitIndexService.getPreBoardEdge(stop.getId());
+            if(preBoardEdge != null) {
+                context.stopDepartNodes.put(stop, (TransitStopDepart) preBoardEdge.getToVertex());
+            }
+        }
+
+        for(AgencyAndId serviceId : calendarService.getServiceIds()) {
+            int n = serviceIdToNumberService.getNumber(serviceId);
+            if (n < 0)
+                continue;
+            context.serviceIds.put(serviceId, n);    
+        }
+    }
+    
+    public void augmentServiceIdToNumberService(ServiceIdToNumberService serviceIdToNumberService) {
+        for(AgencyAndId serviceId : context.serviceIds.keySet()) {
+            if(serviceIdToNumberService.getNumber(serviceId) >= 0)
+                continue;
+
+            serviceIdToNumberService.addService(serviceId, context.serviceIds.get(serviceId));
         }
     }
     
