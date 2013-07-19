@@ -24,11 +24,17 @@ import java.util.TimeZone;
 import lombok.Setter;
 
 import org.onebusaway.gtfs.model.AgencyAndId;
+import org.onebusaway.gtfs.model.Route;
+import org.onebusaway.gtfs.model.Trip;
 import org.onebusaway.gtfs.model.calendar.ServiceDate;
+import org.opentripplanner.routing.graph.Graph;
+import org.opentripplanner.routing.services.GraphService;
+import org.opentripplanner.routing.services.TransitIndexService;
 import org.opentripplanner.routing.trippattern.TripUpdate;
 import org.opentripplanner.routing.trippattern.Update;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.transit.realtime.GtfsRealtime;
 import com.google.transit.realtime.GtfsRealtime.TripUpdate.StopTimeUpdate;
@@ -42,6 +48,9 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
     {
         ymdParser.setTimeZone(TimeZone.getTimeZone("GMT"));
     }
+    
+    @Autowired
+    private GraphService graphService;
 
     @Setter
     private String defaultAgencyId;
@@ -92,13 +101,13 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
                 updates.add(getUpdateForCanceledTrip(tripId, timestamp, serviceDate));
                 break;
             case ADDED:
-                LOG.warn("ScheduleRelationship.ADDED trips are currently not handled.");
-                break;
-            case REPLACEMENT:
-                LOG.warn("ScheduleRelationship.REPLACEMENT trips are currently not handled.");
+                updates.add(getUpdateForAddedTrip(tripId, tripUpdate, timestamp, serviceDate));
                 break;
             case UNSCHEDULED:
                 LOG.warn("ScheduleRelationship.UNSCHEDULED trips are currently not handled.");
+                break;
+            case REPLACEMENT:
+                LOG.warn("ScheduleRelationship.REPLACEMENT trips are currently not handled.");
                 break;
             }
         }
@@ -114,9 +123,7 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
         List<Update> updates = new LinkedList<Update>();
 
         for (StopTimeUpdate stopTimeUpdate : tripUpdate.getStopTimeUpdateList()) {
-            Update u = getStopTimeUpdateForTrip(tripId, timestamp, serviceDate, updates,
-                    stopTimeUpdate);
-
+            Update u = getStopTimeUpdateForTrip(tripId, timestamp, serviceDate, stopTimeUpdate);
             updates.add(u);
         }
 
@@ -124,16 +131,16 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
     }
 
     private Update getStopTimeUpdateForTrip(AgencyAndId tripId, long timestamp,
-            ServiceDate serviceDate, List<Update> updates, StopTimeUpdate stopTimeUpdate) {
+            ServiceDate serviceDate, StopTimeUpdate stopTimeUpdate) {
         
         AgencyAndId stopId = new AgencyAndId(defaultAgencyId, stopTimeUpdate.getStopId());
         
         if (stopTimeUpdate.hasScheduleRelationship()
                 && StopTimeUpdate.ScheduleRelationship.NO_DATA == stopTimeUpdate
                         .getScheduleRelationship()) {
-            Update u = new Update(tripId, stopTimeUpdate.getStopId(), stopTimeUpdate.getStopSequence(),
+            Update u = new Update(tripId, stopId, stopTimeUpdate.getStopSequence(),
                     0, 0, Update.Status.PLANNED, timestamp, serviceDate);
-            updates.add(u);
+            return u;
         }
 
         // TODO: handle cases where only the delay is provided
@@ -157,8 +164,41 @@ public abstract class GtfsRealtimeAbstractUpdateStreamer implements UpdateStream
             departureTime = departureTime - today;
         }
 
-        Update u = new Update(tripId, stopTimeUpdate.getStopId(), stopTimeUpdate.getStopSequence(),
+        Update u = new Update(tripId, stopId, stopTimeUpdate.getStopSequence(),
                 (int) arrivalTime, (int) departureTime, status, timestamp, serviceDate);
         return u;
+    }
+
+    private TripUpdate getUpdateForAddedTrip(AgencyAndId tripId, GtfsRealtime.TripUpdate tripUpdate, long timestamp, ServiceDate serviceDate) {
+        Graph graph = graphService.getGraph();
+        TransitIndexService transitIndexService = graph.getService(TransitIndexService.class);
+
+        Trip trip = new Trip();
+        trip.setId(tripId);
+
+        AgencyAndId routeId = new AgencyAndId(defaultAgencyId, tripUpdate.getTrip().getRouteId());
+        Route route = transitIndexService.getAllRoutes().get(routeId);
+        trip.setRoute(route);
+
+        long today = serviceDate.getAsDate(TimeZone.getTimeZone("GMT")).getTime() / 1000;
+
+        List<Update> updates = new LinkedList<Update>();
+        for(StopTimeUpdate stopTimeUpdate : tripUpdate.getStopTimeUpdateList()) {
+            
+            AgencyAndId stopId = new AgencyAndId(defaultAgencyId, stopTimeUpdate.getStopId());
+            long arrivalTime = stopTimeUpdate.getArrival().getTime();
+            long departureTime = stopTimeUpdate.getDeparture().getTime();
+            
+            arrivalTime = arrivalTime - today;
+            departureTime = departureTime - today;
+            
+            Update u = new Update(tripId, stopId, stopTimeUpdate.getStopSequence(),
+                    (int) arrivalTime, (int) departureTime, Update.Status.PREDICTION,
+                    timestamp, serviceDate);
+
+            updates.add(u);
+        }
+        
+        return TripUpdate.forAddedTrip(trip, timestamp, serviceDate, updates);
     }
 }

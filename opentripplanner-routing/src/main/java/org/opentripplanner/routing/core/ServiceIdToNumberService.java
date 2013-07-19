@@ -22,12 +22,16 @@ public class ServiceIdToNumberService implements Serializable {
     private static final long serialVersionUID = -8447673406675368532L;
     
     HashMap<AgencyAndId, Integer> numberForServiceId;
-    
-    
+
     public ServiceIdToNumberService(HashMap<AgencyAndId, Integer> serviceIds) {
         this.numberForServiceId = serviceIds;
     }
 
+    public void addService(AgencyAndId serviceId, Integer id) {
+        if(!numberForServiceId.containsKey(serviceId) && !numberForServiceId.containsValue(id)) {
+            numberForServiceId.put(serviceId, id);
+        }
+    }
 
     public int getNumber(AgencyAndId serviceId) {
         Integer number = numberForServiceId.get(serviceId);
