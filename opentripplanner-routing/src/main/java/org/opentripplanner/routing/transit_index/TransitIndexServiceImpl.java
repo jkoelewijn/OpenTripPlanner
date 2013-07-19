@@ -58,8 +58,6 @@ public class TransitIndexServiceImpl implements TransitIndexService, Serializabl
 
     private HashMap<AgencyAndId, PreBoardEdge> preBoardEdges;
     
-    private HashMap<AgencyAndId, TableTripPattern> tableTripPatternsByTrip;
-
     private HashMap<AgencyAndId, HashSet<String>> directionsForRoute;
 
     private HashMap<AgencyAndId, HashSet<Stop>> stopsForRoute;
@@ -99,7 +97,6 @@ public class TransitIndexServiceImpl implements TransitIndexService, Serializabl
         this.variantsByTrip = variantsByTrip;
         this.preBoardEdges = preBoardEdges;
         this.preAlightEdges = preAlightEdges;
-        this.tableTripPatternsByTrip = tableTripPatternsByTrip;
         this.directionsForRoute = directionsByRoute;
         this.stopsForRoute = stopsByRoute;
         this.patternForTrip = patternForTrip;
@@ -126,7 +123,6 @@ public class TransitIndexServiceImpl implements TransitIndexService, Serializabl
         this.variantsByTrip.putAll(variantsByTrip);
         this.preBoardEdges.putAll(preBoardEdges);
         this.preAlightEdges.putAll(preAlightEdges);
-        this.tableTripPatternsByTrip.putAll(tableTripPatternsByTrip);
         MapUtils.mergeInUnique(this.directionsForRoute, directionsByRoute);
         MapUtils.mergeInUnique(this.stopsForRoute, stopsByRoute);
         this.patternForTrip.putAll(patternForTrip);
@@ -269,11 +265,6 @@ public class TransitIndexServiceImpl implements TransitIndexService, Serializabl
         return preAlightEdges.get(stop);
     }
     
-    @Override
-    public TableTripPattern getTripPatternForTrip(AgencyAndId tripId) {
-        return tableTripPatternsByTrip.get(tripId);
-    }
-
     @Override
     public PreBoardEdge getPreBoardEdge(AgencyAndId stop) {
         return preBoardEdges.get(stop);

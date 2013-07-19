@@ -39,7 +39,7 @@ import org.opentripplanner.routing.core.TraverseMode;
 import org.opentripplanner.routing.edgetype.PreAlightEdge;
 import org.opentripplanner.routing.edgetype.PreBoardEdge;
 import org.opentripplanner.routing.edgetype.TableTripPattern;
-//import org.opentripplanner.routing.edgetype.factory.GTFSPatternHopFactory.Result;
+import org.opentripplanner.routing.edgetype.factory.GTFSPatternHopFactory.Result;
 import org.opentripplanner.routing.services.TransitIndexService;
 import org.opentripplanner.routing.transit_index.RouteVariant;
 import org.opentripplanner.routing.trippattern.TripTimes;

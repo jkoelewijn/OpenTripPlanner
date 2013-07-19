@@ -43,11 +43,6 @@ public interface TransitIndexService {
 
     public PreAlightEdge getPreAlightEdge(AgencyAndId stop);
 
-    /**
-     * @return The TableTripPattern for a given trip.
-     */
-    public TableTripPattern getTripPatternForTrip(AgencyAndId tripId);
-    
     public List<AgencyAndId> getRoutesForStop(AgencyAndId stop);
 
     public Collection<String> getDirectionsForRoute(AgencyAndId route);

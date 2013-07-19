@@ -193,12 +193,6 @@ public class TestPatch extends TestCase {
             }
 
             @Override
-            public TableTripPattern getTripPatternForTrip(AgencyAndId tripId) {
-                return null;
-            }
-
-
-            @Override
             public Map<AgencyAndId, Stop> getAllStops() {
                 return null;
             }

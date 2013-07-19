@@ -68,7 +68,7 @@ public class OnBoardDepartServiceImpl implements OnBoardDepartService {
         /* 1. Get the list of PatternHop for the given trip ID. */
         AgencyAndId tripId = opt.getStartingTransitTripId();
         TransitIndexService transitIndexService = ctx.graph.getService(TransitIndexService.class);
-        TableTripPattern tripPattern = transitIndexService.getTripPatternForTrip(tripId);
+        TableTripPattern tripPattern = transitIndexService.getPatternForTrip(tripId);
         if (tripPattern == null) {
             // TODO Shouldn't we bailout on a normal trip plan here, returning null ?
             throw new IllegalArgumentException("Unknown/invalid trip ID: " + tripId);
