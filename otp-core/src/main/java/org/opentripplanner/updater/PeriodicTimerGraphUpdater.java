@@ -69,18 +69,7 @@ public class PeriodicTimerGraphUpdater {
 
     public void addUpdater(final GraphUpdaterRunnable updater, long frequencyMs) {
         updater.setup();
-        scheduler.scheduleAtFixedRate(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    updater.run();
-                } catch (Exception e) {
-                    LOG.error("Error while running updater " + updater.getClass().getName(), e);
-                    // TODO Should we cancel the task? Or after n consecutive failures?
-                    // cancel();
-                }
-            }
-        }, 0, frequencyMs, TimeUnit.MILLISECONDS);
+        scheduler.scheduleAtFixedRate(updater, 0, frequencyMs, TimeUnit.MILLISECONDS);
         updaters.add(updater);
     }
 

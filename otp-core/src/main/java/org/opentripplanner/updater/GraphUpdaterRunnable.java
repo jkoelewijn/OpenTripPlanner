@@ -21,11 +21,9 @@ package org.opentripplanner.updater;
  * locking is needed between any two different concurrent GraphUpdaterRunnable instances.
  * 
  */
-public interface GraphUpdaterRunnable {
+public interface GraphUpdaterRunnable extends Runnable {
 
     public void setup();
-
-    public void run();
 
     public void teardown();
 }
