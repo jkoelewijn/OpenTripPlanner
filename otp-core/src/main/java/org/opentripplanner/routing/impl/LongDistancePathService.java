@@ -71,6 +71,9 @@ public class LongDistancePathService implements PathService {
     @Setter 
     private double timeout = 0; // seconds
     
+    @Setter
+    private boolean preferDefaultRemainingWeightHeuristic = false;
+    
     @Override
     public List<GraphPath> getPaths(RoutingRequest options) {
 
@@ -89,7 +92,7 @@ public class LongDistancePathService implements PathService {
         RemainingWeightHeuristic heuristic;
         if (options.isDisableRemainingWeightHeuristic()) {
             heuristic = new TrivialRemainingWeightHeuristic();
-        } else if (options.modes.isTransit()) {
+        } else if (!preferDefaultRemainingWeightHeuristic && options.modes.isTransit()) {
             // Only use the BiDi heuristic for transit.
             heuristic = new InterleavedBidirectionalHeuristic(options.rctx.graph);
         } else {

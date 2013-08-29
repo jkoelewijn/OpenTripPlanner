@@ -104,6 +104,10 @@ public class CommandLineParameters {
             description = "use an algorithm tailored for long-distance routing")
     boolean longDistance = false;
 
+    @Parameter( names = { "--longDistanceUseDRW"}, 
+            description = "Use default remaining weight heuristic with long-distance transit routing")
+    boolean longDistanceUseDRW = false;
+    
     @Parameter( names = { "-p", "--port"}, validateWith = AvailablePort.class, 
     description = "server port")
     Integer port;

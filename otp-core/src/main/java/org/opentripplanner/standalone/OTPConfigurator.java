@@ -92,6 +92,7 @@ public class OTPConfigurator {
         if (params.longDistance) {
             LongDistancePathService pathService = new LongDistancePathService();
             pathService.setTimeout(10);
+            pathService.setPreferDefaultRemainingWeightHeuristic(params.longDistanceUseDRW);
             cpf.bind(PathService.class, pathService);
         } else {
             RetryingPathServiceImpl pathService = new RetryingPathServiceImpl();
