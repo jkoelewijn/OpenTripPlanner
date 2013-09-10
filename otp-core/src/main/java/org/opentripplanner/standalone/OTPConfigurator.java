@@ -2,7 +2,6 @@ package org.opentripplanner.standalone;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -92,7 +91,7 @@ public class OTPConfigurator {
         if (params.longDistance) {
             LongDistancePathService pathService = new LongDistancePathService();
             pathService.setTimeout(10);
-            pathService.setPreferDefaultRemainingWeightHeuristic(params.longDistanceUseDRW);
+            pathService.setPreferLongDistanceRemainingWeightHeuristic(params.longDistanceUseLDRW);
             cpf.bind(PathService.class, pathService);
         } else {
             RetryingPathServiceImpl pathService = new RetryingPathServiceImpl();

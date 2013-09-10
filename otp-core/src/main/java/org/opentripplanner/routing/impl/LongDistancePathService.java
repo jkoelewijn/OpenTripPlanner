@@ -25,6 +25,7 @@ import lombok.Setter;
 
 import org.opentripplanner.routing.algorithm.strategies.DefaultRemainingWeightHeuristic;
 import org.opentripplanner.routing.algorithm.strategies.InterleavedBidirectionalHeuristic;
+import org.opentripplanner.routing.algorithm.strategies.LongDistanceRemainingWeightHeuristic;
 import org.opentripplanner.routing.algorithm.strategies.RemainingWeightHeuristic;
 import org.opentripplanner.routing.algorithm.strategies.TrivialRemainingWeightHeuristic;
 import org.opentripplanner.routing.automata.DFA;
@@ -39,7 +40,6 @@ import org.opentripplanner.routing.edgetype.StreetTransitLink;
 import org.opentripplanner.routing.edgetype.TimedTransferEdge;
 import org.opentripplanner.routing.edgetype.TransferEdge;
 import org.opentripplanner.routing.graph.Edge;
-import org.opentripplanner.routing.graph.Vertex;
 import org.opentripplanner.routing.pathparser.PathParser;
 import org.opentripplanner.routing.services.GraphService;
 import org.opentripplanner.routing.services.PathService;
@@ -73,7 +73,7 @@ public class LongDistancePathService implements PathService {
     private double timeout = 0; // seconds
     
     @Setter
-    private boolean preferDefaultRemainingWeightHeuristic = false;
+    private boolean preferLongDistanceRemainingWeightHeuristic = false;
     
     @Override
     public List<GraphPath> getPaths(RoutingRequest options) {
@@ -93,7 +93,11 @@ public class LongDistancePathService implements PathService {
         RemainingWeightHeuristic heuristic;
         if (options.isDisableRemainingWeightHeuristic()) {
             heuristic = new TrivialRemainingWeightHeuristic();
-        } else if (!preferDefaultRemainingWeightHeuristic && options.modes.isTransit()) {
+        } else if (preferLongDistanceRemainingWeightHeuristic) {
+            // Prefer long distance remaining weight heuristic
+            LOG.debug("Using LongDistanceRemainingWeightHeuristic");
+            heuristic = new LongDistanceRemainingWeightHeuristic();
+        } else if (options.modes.isTransit()) {
             // Only use the BiDi heuristic for transit.
             heuristic = new InterleavedBidirectionalHeuristic(options.rctx.graph);
         } else {
@@ -121,12 +125,12 @@ public class LongDistancePathService implements PathService {
 
     public static class Parser extends PathParser {
 
-        private static final int STREET       = 1;
-        private static final int LINK         = 2;
-        private static final int STATION      = 3;
-        private static final int ONBOARD      = 4;
-        private static final int TRANSFER     = 5;
-        private static final int STATION_STOP = 6;
+        public static final int STREET       = 1;
+        public static final int LINK         = 2;
+        public static final int STATION      = 3;
+        public static final int ONBOARD      = 4;
+        public static final int TRANSFER     = 5;
+        public static final int STATION_STOP = 6;
 
         private static final DFA DFA;
 
