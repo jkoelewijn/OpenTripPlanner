@@ -33,6 +33,7 @@ import org.opentripplanner.routing.core.TraversalRequirements;
 import org.opentripplanner.routing.core.TraverseModeSet;
 import org.opentripplanner.routing.edgetype.PatternEdge;
 import org.opentripplanner.routing.edgetype.StreetEdge;
+import org.opentripplanner.routing.edgetype.StreetTraversalPermission;
 import org.opentripplanner.routing.edgetype.TemporaryFreeEdge;
 import org.opentripplanner.routing.edgetype.TemporaryPartialStreetEdge;
 import org.opentripplanner.routing.graph.Edge;
@@ -487,7 +488,15 @@ public class StreetVertexIndexServiceImpl implements StreetVertexIndexService {
                 // still intersect. In this case, distance to the edge is greater
                 // than the query envelope size.
                 if (ce.distance < radius) {
-                    candidateEdges.add(ce);
+                    if (possibleTransitLinksOnly) {
+                        // assuming all platforms are tagged when they are not car streets... #1077 
+                        if (((ce.edge.getStreetClass() & StreetEdge.ANY_PLATFORM_MASK) != 0 ||
+                                ce.edge.getPermission().allows(StreetTraversalPermission.CAR))) {
+                            candidateEdges.add(ce);
+                        }
+                    } else {
+                        candidateEdges.add(ce);
+                    }
                 }
             }
         }
@@ -497,11 +506,6 @@ public class StreetVertexIndexServiceImpl implements StreetVertexIndexService {
         CandidateEdgeBundle best = null;
         for (CandidateEdgeBundle bundle : bundles) {
             if (best == null || bundle.best.score < best.best.score) {
-                if (possibleTransitLinksOnly) {
-                    // assuming all platforms are tagged when they are not car streets... #1077 
-                    if (!(bundle.allowsCars() || bundle.isPlatform()))
-                        continue;
-                }
                 best = bundle;
             }
         }

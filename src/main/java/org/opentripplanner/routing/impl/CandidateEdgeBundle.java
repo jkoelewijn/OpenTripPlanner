@@ -96,24 +96,4 @@ public class CandidateEdgeBundle extends ArrayList<CandidateEdge> {
     public double getScore() {
         return best.score;
     }
-
-    public boolean isPlatform() {
-        for (CandidateEdge ce : CandidateEdgeBundle.this) {
-            StreetEdge e = ce.edge;
-            if ((e.getStreetClass() & StreetEdge.ANY_PLATFORM_MASK) != 0) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public boolean allowsCars() {
-        for (CandidateEdge ce : CandidateEdgeBundle.this) {
-            StreetEdge e = ce.edge;
-            if (e.getPermission().allows(StreetTraversalPermission.CAR)) {
-                return true;
-            }
-        }
-        return false;
-    }
 }
